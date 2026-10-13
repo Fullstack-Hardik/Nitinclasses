@@ -1,0 +1,100 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const connectDB = require('./config/db');
+const { seedDefaultAdmin } = require('./controllers/authController');
+const { apiRateLimiter } = require('./middleware/rateLimiter');
+
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const studentRoutes = require('./routes/studentRoutes');
+const feeRoutes = require('./routes/feeRoutes');
+const libraryRoutes = require('./routes/libraryRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+
+const app = express();
+
+// Security Middlewares
+app.use(helmet());
+
+// CORS configuration for Render backend & Vercel frontend / local dev
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.CLIENT_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    // Allow any vercel preview deployment or production if needed
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS policy does not allow access from specified origin'), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Apply general API rate limiter
+app.use('/api/', apiRateLimiter);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'Nitin Sir Classes API'
+  });
+});
+
+// Mount Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/fees', feeRoutes);
+app.use('/api/library', libraryRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/settings', settingsRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('[Unhandled Error]', err.stack || err.message);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal Server Error'
+  });
+});
+
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Resource not found' });
+});
+
+const PORT = process.env.PORT || 5000;
+
+// Connect DB and Start Server
+connectDB().then(async () => {
+  await seedDefaultAdmin();
+  app.listen(PORT, () => {
+    console.log(`[Server] Nitin Sir Classes API running on port ${PORT}`);
+  });
+}).catch((err) => {
+  console.error('[DB Startup Error]', err);
+  // Still listen so server doesn't crash on bad URI in dev
+  app.listen(PORT, () => {
+    console.log(`[Server] Nitin Sir Classes API listening on port ${PORT} (DB offline)`);
+  });
+});
+
+module.exports = app;

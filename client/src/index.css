@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#EEF2F6] text-slate-800 antialiased font-sans selection:bg-blue-200 selection:text-blue-900;
+  }
+}
+
+/* Neumorphic UI Classes */
+.neu-card {
+  background: #EEF2F6;
+  box-shadow: 8px 8px 16px #d1d9e6, -8px -8px 16px #ffffff;
+  border-radius: 1rem;
+}
+
+.neu-card-sm {
+  background: #EEF2F6;
+  box-shadow: 4px 4px 10px #d1d9e6, -4px -4px 10px #ffffff;
+  border-radius: 0.75rem;
+}
+
+.neu-button {
+  background: #EEF2F6;
+  box-shadow: 5px 5px 10px #d1d9e6, -5px -5px 10px #ffffff;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.neu-button:hover {
+  box-shadow: 2px 2px 5px #d1d9e6, -2px -2px 5px #ffffff;
+}
+
+.neu-button:active {
+  box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
+}
+
+.neu-button-primary {
+  background: #0F172A;
+  color: #FFFFFF;
+  box-shadow: 5px 5px 12px rgba(15, 23, 42, 0.35), -5px -5px 12px rgba(255, 255, 255, 0.9);
+  border-radius: 0.75rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.neu-button-primary:hover {
+  background: #1E293B;
+  box-shadow: 2px 2px 6px rgba(15, 23, 42, 0.4);
+}
+
+.neu-button-primary:active {
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.neu-input {
+  background: #EEF2F6;
+  box-shadow: inset 3px 3px 6px #d1d9e6, inset -3px -3px 6px #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(209, 217, 230, 0.4);
+  transition: all 0.2s ease;
+}
+
+.neu-input:focus {
+  outline: none;
+  border-color: #0F172A;
+  box-shadow: inset 4px 4px 8px #cbd5e1, inset -4px -4px 8px #ffffff;
+}

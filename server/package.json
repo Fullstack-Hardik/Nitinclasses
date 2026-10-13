@@ -1,0 +1,27 @@
+{
+  "name": "nitin-sir-classes-server",
+  "version": "1.0.0",
+  "description": "Backend API for Nitin Sir Classes Management Software",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.13.0",
+    "pdfkit": "^0.16.0",
+    "pdfkit-table": "^0.1.99"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
