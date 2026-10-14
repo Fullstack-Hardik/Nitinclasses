@@ -2,7 +2,7 @@ const FeeDue = require('../models/FeeDue');
 const Payment = require('../models/Payment');
 const Student = require('../models/Student');
 const Settings = require('../models/Settings');
-const { generateReceiptPDF } = require('../services/receiptService');
+const { generateReceiptPDF, generateStudentFeeStatementPDF } = require('../services/receiptService');
 const { syncAllStudentsDues } = require('../services/billingService');
 
 // Helper to generate unique receipt number
@@ -173,9 +173,31 @@ const syncDues = async (req, res) => {
   }
 };
 
+// GET /api/fees/student/:studentId/statement/pdf
+const downloadStudentFullStatement = async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student record not found' });
+    }
+
+    const dues = await FeeDue.find({ student: student._id }).sort({ dueDate: 1 });
+    const payments = await Payment.find({ student: student._id }).sort({ paymentDate: 1 });
+    const settings = await Settings.findOne() || {};
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Fee-Statement-${student.studentId}.pdf`);
+
+    generateStudentFeeStatementPDF(student, dues, payments, settings, res);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getFeeDues,
   collectPayment,
   downloadReceipt,
-  syncDues
+  syncDues,
+  downloadStudentFullStatement
 };

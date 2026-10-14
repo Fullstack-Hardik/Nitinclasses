@@ -5,7 +5,10 @@ const {
   allocateSeat,
   releaseSeat,
   toggleBlockSeat,
-  configureCapacity
+  configureCapacity,
+  addSeat,
+  deleteSeat,
+  getEligibleStudents
 } = require('../controllers/libraryController');
 const { protect } = require('../middleware/auth');
 
@@ -16,5 +19,8 @@ router.post('/allocate', allocateSeat);
 router.post('/release', releaseSeat);
 router.post('/toggle-block', toggleBlockSeat);
 router.post('/configure-capacity', configureCapacity);
+router.post('/add-seat', addSeat);
+router.post('/delete-seat', deleteSeat);
+router.get('/eligible-students', getEligibleStudents);
 
 module.exports = router;

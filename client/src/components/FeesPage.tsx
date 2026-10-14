@@ -8,7 +8,8 @@ import {
   RefreshCw,
   IndianRupee,
   CheckCircle2,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react';
 import api from '../services/api';
 import { FeeDue } from '../types';
@@ -217,17 +218,46 @@ export const FeesPage: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {!isPaid ? (
-                          <button
-                            onClick={() => setSelectedFeeDue(due)}
-                            className="neu-button-primary px-3 py-1.5 text-[11px] font-bold inline-flex items-center gap-1"
-                          >
-                            <IndianRupee className="w-3.5 h-3.5" />
-                            Collect Fee
-                          </button>
-                        ) : (
-                          <span className="text-slate-400 text-[11px] italic">Settled</span>
-                        )}
+                        <div className="flex items-center justify-end gap-1.5">
+                          {due.student?._id && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const response = await api.get(`/fees/student/${due.student._id}/statement/pdf`, {
+                                    responseType: 'blob'
+                                  });
+                                  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.setAttribute('download', `Fee-Statement-${due.student.studentId}.pdf`);
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  link.parentNode?.removeChild(link);
+                                } catch (err: any) {
+                                  alert('Failed to download statement: ' + err.message);
+                                }
+                              }}
+                              title="Download Full Ledger & Statement PDF"
+                              className="p-1.5 neu-button text-slate-600 hover:text-slate-900"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {!isPaid ? (
+                            <button
+                              onClick={() => setSelectedFeeDue(due)}
+                              className="neu-button-primary px-3 py-1.5 text-[11px] font-bold inline-flex items-center gap-1"
+                            >
+                              <IndianRupee className="w-3.5 h-3.5" />
+                              Collect Fee
+                            </button>
+                          ) : (
+                            <span className="text-emerald-700 font-bold text-[11px] bg-emerald-50 px-2.5 py-1 rounded-lg">
+                              Settled ✓
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

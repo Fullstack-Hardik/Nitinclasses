@@ -40,6 +40,12 @@ async function generateDuesForStudent(student, serviceType) {
     (currentYear === nowYear && currentMonth <= nowMonth)
   ) {
     const periodStart = getAnniversaryDate(currentYear, currentMonth, anniversaryDay);
+
+    // CRITICAL: If the period start date is still in the future, do not generate it yet!
+    // A fee cycle only becomes due once the anniversary day has actually arrived.
+    if (periodStart > now) {
+      break;
+    }
     
     // Period end is 1 day before the next anniversary date
     let nextMonth = currentMonth + 1;

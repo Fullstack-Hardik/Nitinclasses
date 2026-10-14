@@ -205,10 +205,133 @@ const configureCapacity = async (req, res) => {
   }
 };
 
+// POST /api/library/add-seat
+const addSeat = async (req, res) => {
+  try {
+    const { libraryType, seatNumber } = req.body;
+    if (!libraryType || !['boys', 'girls'].includes(libraryType)) {
+      return res.status(400).json({ success: false, message: 'Valid library type (boys/girls) is required' });
+    }
+
+    let targetSeatNumber = seatNumber ? Number(seatNumber) : null;
+
+    if (!targetSeatNumber) {
+      // Find highest current seatNumber
+      const highestSeat = await Seat.findOne({ libraryType }).sort({ seatNumber: -1 });
+      targetSeatNumber = (highestSeat ? highestSeat.seatNumber : 0) + 1;
+    }
+
+    // Check if seat already exists
+    const existing = await Seat.findOne({ libraryType, seatNumber: targetSeatNumber });
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Seat #${targetSeatNumber} already exists in ${libraryType} library.` });
+    }
+
+    const newSeat = await Seat.create({
+      libraryType,
+      seatNumber: targetSeatNumber,
+      status: 'available',
+      assignedStudent: null
+    });
+
+    // Update settings capacity if targetSeatNumber is higher than configured capacity
+    const settings = await Settings.findOne() || new Settings();
+    const capacityField = libraryType === 'boys' ? 'boysLibraryTotalSeats' : 'girlsLibraryTotalSeats';
+    const totalCount = await Seat.countDocuments({ libraryType });
+    if (totalCount > (settings[capacityField] || 0)) {
+      settings[capacityField] = totalCount;
+      await settings.save();
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Seat #${targetSeatNumber} successfully added to ${libraryType} library.`,
+      seat: newSeat
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// DELETE /api/library/delete-seat
+const deleteSeat = async (req, res) => {
+  try {
+    const { libraryType, seatNumber } = req.body;
+    if (!libraryType || !seatNumber) {
+      return res.status(400).json({ success: false, message: 'Library type and seat number are required' });
+    }
+
+    const seat = await Seat.findOne({ libraryType, seatNumber: Number(seatNumber) });
+    if (!seat) {
+      return res.status(404).json({ success: false, message: `Seat #${seatNumber} not found` });
+    }
+
+    if (seat.status === 'occupied' && seat.assignedStudent) {
+      // Release student allocation before deleting
+      await Student.findByIdAndUpdate(seat.assignedStudent, { 'library.seatNumber': null });
+    }
+
+    await Seat.findByIdAndDelete(seat._id);
+
+    // Update settings capacity to match remaining seat count
+    const totalCount = await Seat.countDocuments({ libraryType });
+    const settings = await Settings.findOne();
+    if (settings) {
+      const capacityField = libraryType === 'boys' ? 'boysLibraryTotalSeats' : 'girlsLibraryTotalSeats';
+      settings[capacityField] = totalCount;
+      await settings.save();
+    }
+
+    return res.json({
+      success: true,
+      message: `Seat #${seatNumber} deleted successfully from ${libraryType} library.`
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/library/eligible-students
+const getEligibleStudents = async (req, res) => {
+  try {
+    const { libraryType, search } = req.query;
+    const type = libraryType || 'boys';
+
+    let filter = {
+      isArchived: false,
+      'library.hasMembership': true
+    };
+
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      filter.$or = [
+        { fullName: searchRegex },
+        { studentId: searchRegex },
+        { mobileNumber: searchRegex }
+      ];
+    }
+
+    const students = await Student.find(filter)
+      .select('fullName studentId mobileNumber library membershipType')
+      .sort({ fullName: 1 });
+
+    return res.json({
+      success: true,
+      count: students.length,
+      data: students
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getLibraryOverview,
   allocateSeat,
   releaseSeat,
   toggleBlockSeat,
-  configureCapacity
+  configureCapacity,
+  addSeat,
+  deleteSeat,
+  getEligibleStudents
 };

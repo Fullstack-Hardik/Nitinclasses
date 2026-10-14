@@ -125,7 +125,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
       <div className="neu-card w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 relative">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200/60 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-200/60 mb-6 gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
               {data?.student.studentId.slice(-3) || 'ST'}
@@ -135,12 +135,38 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <p className="text-xs text-slate-500 font-medium">ID: {data?.student.studentId}</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const response = await api.get(`/fees/student/${studentId}/statement/pdf`, {
+                    responseType: 'blob'
+                  });
+                  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', `Fee-Statement-${data?.student.studentId}.pdf`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.parentNode?.removeChild(link);
+                } catch (err: any) {
+                  alert('Error downloading complete statement: ' + err.message);
+                }
+              }}
+              className="neu-button-primary px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+              title="Download full fee ledger and receipt statement PDF"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download Full Receipt & Statement
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {loading ? (

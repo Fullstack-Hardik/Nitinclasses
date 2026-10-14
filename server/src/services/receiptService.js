@@ -98,4 +98,136 @@ function generateReceiptPDF(payment, student, settings, res) {
   doc.end();
 }
 
-module.exports = { generateReceiptPDF };
+// Generate Full Fee History & Statement PDF for a Student
+function generateStudentFeeStatementPDF(student, dues, payments, settings, res) {
+  const doc = new PDFDocument({ margin: 36, size: 'A4', layout: 'portrait' });
+  doc.pipe(res);
+
+  const navyColor = '#0F172A';
+  const lightGrey = '#F8FAFC';
+  const darkSlate = '#334155';
+  const greenColor = '#16A34A';
+  const redColor = '#DC2626';
+
+  // Header Banner
+  doc.rect(36, 36, doc.page.width - 72, 70).fill(navyColor);
+  doc.fillColor('#FFFFFF')
+     .fontSize(18)
+     .font('Helvetica-Bold')
+     .text(settings?.instituteName || 'NITIN SIR CLASSES', 50, 48, { align: 'center' });
+
+  doc.fontSize(9)
+     .font('Helvetica')
+     .text(`${settings?.address || 'Kota, Rajasthan'} | Contact: ${settings?.contactNumber || '+91 9876543210'}`, 50, 72, { align: 'center' });
+
+  doc.fontSize(11)
+     .font('Helvetica-Bold')
+     .text('STUDENT COMPLETE FEE LEDGER & RECEIPT STATEMENT', 50, 88, { align: 'center' });
+
+  // Student Profile Summary Box
+  const startY = 120;
+  doc.rect(36, startY, doc.page.width - 72, 65).fill(lightGrey).stroke('#E2E8F0');
+
+  doc.fillColor(navyColor).fontSize(10).font('Helvetica-Bold');
+  doc.text(`Student: ${student.fullName}`, 48, startY + 12);
+  doc.text(`Student ID: ${student.studentId}`, 360, startY + 12);
+
+  doc.fillColor(darkSlate).fontSize(9).font('Helvetica');
+  doc.text(`Mobile: ${student.mobileNumber}`, 48, startY + 28);
+  doc.text(`Membership: ${student.membershipType.replace(/_/g, ' ').toUpperCase()}`, 360, startY + 28);
+
+  const totalBilled = dues.reduce((acc, d) => acc + d.amount, 0);
+  const totalPaid = payments.reduce((acc, p) => acc + p.amountPaid, 0);
+  const totalRemaining = dues.reduce((acc, d) => acc + d.remainingAmount, 0);
+
+  doc.text(`Total Billed: Rs. ${totalBilled.toFixed(2)}`, 48, startY + 44);
+  doc.fillColor(greenColor).font('Helvetica-Bold');
+  doc.text(`Total Paid: Rs. ${totalPaid.toFixed(2)}`, 200, startY + 44);
+  doc.fillColor(totalRemaining > 0 ? redColor : greenColor);
+  doc.text(`Net Outstanding: Rs. ${totalRemaining.toFixed(2)}`, 360, startY + 44);
+
+  // Table 1: Fee Dues Breakdown
+  let currentY = startY + 80;
+  doc.fillColor(navyColor).fontSize(11).font('Helvetica-Bold');
+  doc.text('1. Fee Billing Periods & Dues', 36, currentY);
+
+  currentY += 16;
+  doc.rect(36, currentY, doc.page.width - 72, 22).fill(navyColor);
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8.5);
+  doc.text('Billing Period', 46, currentY + 6);
+  doc.text('Service', 210, currentY + 6);
+  doc.text('Billed (Rs)', 300, currentY + 6);
+  doc.text('Paid (Rs)', 390, currentY + 6);
+  doc.text('Pending (Rs)', 480, currentY + 6);
+
+  currentY += 22;
+  if (dues.length === 0) {
+    doc.fillColor(darkSlate).font('Helvetica').fontSize(9);
+    doc.text('No fee dues recorded yet.', 46, currentY + 8);
+    currentY += 24;
+  } else {
+    dues.forEach((d, idx) => {
+      const rowBg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+      doc.rect(36, currentY, doc.page.width - 72, 20).fill(rowBg);
+      doc.fillColor(darkSlate).font('Helvetica').fontSize(8.5);
+      doc.text(d.billingPeriod, 46, currentY + 5);
+      doc.text(d.serviceType.toUpperCase(), 210, currentY + 5);
+      doc.text(d.amount.toFixed(2), 300, currentY + 5);
+      doc.text(d.paidAmount.toFixed(2), 390, currentY + 5);
+      doc.fillColor(d.remainingAmount > 0 ? redColor : greenColor).font('Helvetica-Bold');
+      doc.text(d.remainingAmount.toFixed(2), 480, currentY + 5);
+      currentY += 20;
+    });
+  }
+
+  // Table 2: Payment Transactions History
+  currentY += 16;
+  doc.fillColor(navyColor).fontSize(11).font('Helvetica-Bold');
+  doc.text('2. Payment Receipts & Transactions History', 36, currentY);
+
+  currentY += 16;
+  doc.rect(36, currentY, doc.page.width - 72, 22).fill(navyColor);
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8.5);
+  doc.text('Receipt No', 46, currentY + 6);
+  doc.text('Date', 155, currentY + 6);
+  doc.text('Service', 240, currentY + 6);
+  doc.text('Mode', 320, currentY + 6);
+  doc.text('Amount (Rs)', 400, currentY + 6);
+  doc.text('Remaining (Rs)', 480, currentY + 6);
+
+  currentY += 22;
+  if (payments.length === 0) {
+    doc.fillColor(darkSlate).font('Helvetica').fontSize(9);
+    doc.text('No payment transactions received yet.', 46, currentY + 8);
+    currentY += 24;
+  } else {
+    payments.forEach((p, idx) => {
+      const rowBg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+      doc.rect(36, currentY, doc.page.width - 72, 20).fill(rowBg);
+      doc.fillColor(darkSlate).font('Helvetica').fontSize(8.5);
+      doc.text(p.receiptNumber, 46, currentY + 5);
+      doc.text(new Date(p.paymentDate).toLocaleDateString('en-GB'), 155, currentY + 5);
+      doc.text(p.serviceType.toUpperCase(), 240, currentY + 5);
+      doc.text(p.paymentMethod.toUpperCase(), 320, currentY + 5);
+      doc.fillColor(greenColor).font('Helvetica-Bold');
+      doc.text(p.amountPaid.toFixed(2), 400, currentY + 5);
+      doc.fillColor(darkSlate).font('Helvetica');
+      doc.text(p.remainingBalance.toFixed(2), 480, currentY + 5);
+      currentY += 20;
+    });
+  }
+
+  // Signatory Footer
+  const footerY = doc.page.height - 70;
+  doc.rect(36, footerY, doc.page.width - 72, 0.5).stroke('#CBD5E1');
+  doc.fillColor(darkSlate).fontSize(8).font('Helvetica');
+  doc.text(`Generated on ${new Date().toLocaleString('en-IN')}`, 46, footerY + 12);
+  doc.text('Authorized Signatory - Nitin Sir Classes', doc.page.width - 240, footerY + 12, { align: 'right' });
+
+  doc.end();
+}
+
+module.exports = { 
+  generateReceiptPDF,
+  generateStudentFeeStatementPDF
+};
