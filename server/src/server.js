@@ -16,8 +16,11 @@ const settingsRoutes = require('./routes/settingsRoutes');
 
 const app = express();
 
-// Security Middlewares
-app.use(helmet());
+// Security Middlewares - JSON REST API setup
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 
 // CORS configuration for Render backend & Vercel frontend / custom domains
 const rawClientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.trim().replace(/\/+$/, '') : '';
