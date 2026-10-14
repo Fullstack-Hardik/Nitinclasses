@@ -14,6 +14,8 @@ const libraryRoutes = require('./routes/libraryRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 
+const app = express();
+
 // Enable trust proxy for reverse proxies (Render, Vercel, Nginx, Cloudflare)
 app.set('trust proxy', 1);
 
@@ -102,18 +104,18 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Connect DB and Start Server
-connectDB().then(async () => {
-  await seedDefaultAdmin();
-  app.listen(PORT, () => {
-    console.log(`[Server] Nitin Sir Classes API running on port ${PORT}`);
-  });
-}).catch((err) => {
-  console.error('[DB Startup Error]', err);
-  // Still listen so server doesn't crash on bad URI in dev
-  app.listen(PORT, () => {
-    console.log(`[Server] Nitin Sir Classes API listening on port ${PORT} (DB offline)`);
-  });
+// Start HTTP server immediately so cloud platforms (Render, Railway, etc.) detect port binding
+const server = app.listen(PORT, () => {
+  console.log(`[Server] Nitin Sir Classes API running on port ${PORT}`);
+  
+  // Connect to Database asynchronously
+  connectDB()
+    .then(async () => {
+      await seedDefaultAdmin();
+    })
+    .catch((err) => {
+      console.error('[DB Startup Error] Background connection failed:', err.message);
+    });
 });
 
 module.exports = app;
