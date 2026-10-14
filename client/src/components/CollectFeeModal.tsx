@@ -31,11 +31,6 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
       return;
     }
 
-    if (num > feeDue.remainingAmount) {
-      setError(`Amount cannot exceed remaining balance (₹${feeDue.remainingAmount}).`);
-      return;
-    }
-
     try {
       setLoading(true);
       const res = await api.post('/fees/collect', {
@@ -160,19 +155,25 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
 
             {/* Input Amount */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Amount Being Collected (₹) *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Amount Being Collected (₹) *
+                </label>
+                <span className="text-[11px] text-blue-600 font-medium">
+                  Extra amount auto-sorts next months
+                </span>
+              </div>
               <input
                 type="number"
                 min="1"
-                max={feeDue.remainingAmount}
                 required
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
                 className="w-full neu-input px-3.5 py-2.5 text-sm font-bold text-slate-900"
               />
-              <span className="text-[11px] text-slate-400 mt-1 block">Supports full or partial payment</span>
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Supports partial payment or advance multi-month payment (e.g. ₹1000 or ₹1500).
+              </span>
             </div>
 
             {/* Payment Method: Cash or UPI */}

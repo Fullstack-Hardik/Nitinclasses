@@ -139,12 +139,17 @@ function generateStudentFeeStatementPDF(student, dues, payments, settings, res) 
   const totalBilled = dues.reduce((acc, d) => acc + d.amount, 0);
   const totalPaid = payments.reduce((acc, p) => acc + p.amountPaid, 0);
   const totalRemaining = dues.reduce((acc, d) => acc + d.remainingAmount, 0);
+  const advanceCredit = student.advanceFeeBalance || 0;
 
   doc.text(`Total Billed: Rs. ${totalBilled.toFixed(2)}`, 48, startY + 44);
   doc.fillColor(greenColor).font('Helvetica-Bold');
-  doc.text(`Total Paid: Rs. ${totalPaid.toFixed(2)}`, 200, startY + 44);
+  doc.text(`Total Paid: Rs. ${totalPaid.toFixed(2)}`, 180, startY + 44);
   doc.fillColor(totalRemaining > 0 ? redColor : greenColor);
-  doc.text(`Net Outstanding: Rs. ${totalRemaining.toFixed(2)}`, 360, startY + 44);
+  doc.text(`Outstanding: Rs. ${totalRemaining.toFixed(2)}`, 320, startY + 44);
+  if (advanceCredit > 0) {
+    doc.fillColor('#2563EB').font('Helvetica-Bold');
+    doc.text(`Advance Wallet: Rs. ${advanceCredit.toFixed(2)}`, 440, startY + 44);
+  }
 
   // Table 1: Fee Dues Breakdown
   let currentY = startY + 80;

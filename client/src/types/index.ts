@@ -22,6 +22,7 @@ export interface Student {
     seatNumber?: number | null;
   };
   totalOutstanding?: number;
+  advanceFeeBalance?: number;
   isArchived?: boolean;
   createdAt?: string;
 }

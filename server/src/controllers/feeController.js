@@ -149,15 +149,17 @@ const collectPayment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Fee due record not found.' });
     }
 
+    // If amount paid exceeds remaining amount, the excess goes to student's advanceFeeBalance
+    let amountAppliedToDue = paidNum;
+    let excessToAdvance = 0;
+
     if (paidNum > feeDue.remainingAmount) {
-      return res.status(400).json({
-        success: false,
-        message: `Amount paid (₹${paidNum}) cannot exceed remaining balance (₹${feeDue.remainingAmount}).`
-      });
+      amountAppliedToDue = feeDue.remainingAmount;
+      excessToAdvance = paidNum - feeDue.remainingAmount;
     }
 
     const previousPaid = feeDue.paidAmount;
-    const newPaidAmount = previousPaid + paidNum;
+    const newPaidAmount = previousPaid + amountAppliedToDue;
     const newRemainingBalance = feeDue.amount - newPaidAmount;
 
     // Update FeeDue status
@@ -165,6 +167,13 @@ const collectPayment = async (req, res) => {
     feeDue.remainingAmount = newRemainingBalance;
     feeDue.status = newRemainingBalance === 0 ? 'paid' : 'partially_paid';
     await feeDue.save();
+
+    // If there is excess, credit it to student's advanceFeeBalance
+    if (excessToAdvance > 0) {
+      await Student.findByIdAndUpdate(feeDue.student._id, {
+        $inc: { advanceFeeBalance: excessToAdvance }
+      });
+    }
 
     // Generate receipt number & save Payment record
     const receiptNumber = await generateReceiptNumber();
@@ -176,20 +185,148 @@ const collectPayment = async (req, res) => {
       billingPeriod: feeDue.billingPeriod,
       originalFeeAmount: feeDue.amount,
       previousPaidAmount: previousPaid,
-      amountPaid: paidNum,
+      amountPaid: paidNum, // Total amount collected from student
       remainingBalance: newRemainingBalance,
       paymentMethod,
       upiTransactionRef: paymentMethod === 'upi' ? (upiTransactionRef || '') : '',
-      notes: notes || '',
+      notes: excessToAdvance > 0
+        ? `${notes ? notes + ' | ' : ''}₹${excessToAdvance} added to advance wallet for next months`
+        : (notes || ''),
       paymentDate: new Date()
     });
 
     return res.status(201).json({
       success: true,
-      message: 'Payment recorded successfully',
+      message: excessToAdvance > 0
+        ? `Payment recorded! Due settled & ₹${excessToAdvance} credited to next months.`
+        : 'Payment recorded successfully',
       data: {
         payment,
-        feeDue
+        feeDue,
+        excessAddedToAdvance: excessToAdvance
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/fees/collect-anytime (Collect fee anytime directly for a student)
+const collectStudentFeeDirect = async (req, res) => {
+  try {
+    const {
+      studentId,
+      serviceType,
+      amount,
+      paymentMethod,
+      upiTransactionRef,
+      notes
+    } = req.body;
+
+    if (!studentId || !serviceType || !amount || !paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID, service type (coaching/library), amount, and payment method are required.'
+      });
+    }
+
+    const payAmount = Number(amount);
+    if (isNaN(payAmount) || payAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero.' });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    // 1. First find any unpaid dues for this student and service type (oldest first)
+    const pendingDues = await FeeDue.find({
+      student: student._id,
+      serviceType,
+      remainingAmount: { $gt: 0 }
+    }).sort({ dueDate: 1 });
+
+    let unallocatedAmount = payAmount;
+    let settledPayments = [];
+    let lastFeeDue = null;
+
+    for (const due of pendingDues) {
+      if (unallocatedAmount <= 0) break;
+
+      const toPay = Math.min(unallocatedAmount, due.remainingAmount);
+      const prevPaid = due.paidAmount;
+      due.paidAmount += toPay;
+      due.remainingAmount -= toPay;
+      due.status = due.remainingAmount === 0 ? 'paid' : 'partially_paid';
+      await due.save();
+      lastFeeDue = due;
+
+      const receiptNumber = await generateReceiptNumber();
+      const p = await Payment.create({
+        receiptNumber,
+        student: student._id,
+        feeDue: due._id,
+        serviceType,
+        billingPeriod: due.billingPeriod,
+        originalFeeAmount: due.amount,
+        previousPaidAmount: prevPaid,
+        amountPaid: toPay,
+        remainingBalance: due.remainingAmount,
+        paymentMethod,
+        upiTransactionRef: paymentMethod === 'upi' ? (upiTransactionRef || '') : '',
+        notes: notes || 'Direct fee collection',
+        paymentDate: new Date()
+      });
+      settledPayments.push(p);
+
+      unallocatedAmount -= toPay;
+    }
+
+    // 2. If all pending dues are settled (or student had no dues), any remaining unallocated amount
+    // goes straight into student.advanceFeeBalance for future months!
+    let excessToAdvance = 0;
+    let advancePaymentRecord = null;
+    if (unallocatedAmount > 0) {
+      excessToAdvance = unallocatedAmount;
+      student.advanceFeeBalance = (student.advanceFeeBalance || 0) + excessToAdvance;
+      await student.save();
+
+      // Create a receipt payment for this advance deposit
+      const receiptNumber = await generateReceiptNumber();
+      // If student has a lastFeeDue, reference it, else find any feeDue or leave as dummy
+      const fallbackFeeDue = lastFeeDue || await FeeDue.findOne({ student: student._id, serviceType });
+
+      advancePaymentRecord = await Payment.create({
+        receiptNumber,
+        student: student._id,
+        feeDue: fallbackFeeDue ? fallbackFeeDue._id : null,
+        serviceType,
+        billingPeriod: 'Advance Balance (Future Months)',
+        originalFeeAmount: excessToAdvance,
+        previousPaidAmount: 0,
+        amountPaid: excessToAdvance,
+        remainingBalance: 0,
+        paymentMethod,
+        upiTransactionRef: paymentMethod === 'upi' ? (upiTransactionRef || '') : '',
+        notes: `${notes ? notes + ' | ' : ''}Advance credit added to wallet (sorts automatically across future months)`,
+        paymentDate: new Date()
+      });
+      settledPayments.push(advancePaymentRecord);
+    }
+
+    const primaryPayment = settledPayments[0] || advancePaymentRecord;
+
+    return res.status(201).json({
+      success: true,
+      message: excessToAdvance > 0
+        ? `₹${payAmount} collected! (₹${excessToAdvance} saved as advance for upcoming months).`
+        : `₹${payAmount} collected and applied to pending dues successfully!`,
+      data: {
+        payment: primaryPayment,
+        settledPayments,
+        advanceBalance: student.advanceFeeBalance,
+        excessAddedToAdvance: excessToAdvance
       }
     });
   } catch (error) {
@@ -250,6 +387,7 @@ const downloadStudentFullStatement = async (req, res) => {
 module.exports = {
   getFeeDues,
   collectPayment,
+  collectStudentFeeDirect,
   downloadReceipt,
   syncDues,
   downloadStudentFullStatement

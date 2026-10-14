@@ -61,6 +61,12 @@ const studentSchema = new mongoose.Schema({
     seatNumber: { type: Number, default: null } // null if allocated later
   },
 
+  // Advance Balance / Credit Wallet (excess fee collected to sort future months)
+  advanceFeeBalance: {
+    type: Number,
+    default: 0
+  },
+
   // Soft deletion or archived flag with audit trail
   isArchived: {
     type: Boolean,

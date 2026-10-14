@@ -75,24 +75,114 @@ async function generateDuesForStudent(student, serviceType) {
     if (!existing) {
       // Determine initial status based on due date vs today
       const isPastDue = dueDate < new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const initialStatus = isPastDue ? 'overdue' : 'due';
+      let initialStatus = isPastDue ? 'overdue' : 'due';
+      let paidAmount = 0;
+      let remainingAmount = feeAmount;
 
-      const newDue = await FeeDue.create({
-        student: student._id,
-        serviceType,
-        billingPeriod,
-        periodStartDate: periodStart,
-        periodEndDate: periodEnd,
-        dueDate,
-        amount: feeAmount,
-        paidAmount: 0,
-        remainingAmount: feeAmount,
-        status: initialStatus
-      });
-      generatedDues.push(newDue);
+      // Auto-settlement from student's advanceFeeBalance if available
+      if (student.advanceFeeBalance && student.advanceFeeBalance > 0) {
+        const Student = require('../models/Student');
+        const Payment = require('../models/Payment');
+        const Settings = require('../models/Settings');
+
+        const advanceToUse = Math.min(student.advanceFeeBalance, feeAmount);
+        paidAmount = advanceToUse;
+        remainingAmount = feeAmount - advanceToUse;
+        initialStatus = remainingAmount === 0 ? 'paid' : 'partially_paid';
+
+        // Deduct from student's advance credit
+        student.advanceFeeBalance -= advanceToUse;
+        await Student.findByIdAndUpdate(student._id, { advanceFeeBalance: student.advanceFeeBalance });
+
+        const newDue = await FeeDue.create({
+          student: student._id,
+          serviceType,
+          billingPeriod,
+          periodStartDate: periodStart,
+          periodEndDate: periodEnd,
+          dueDate,
+          amount: feeAmount,
+          paidAmount,
+          remainingAmount,
+          status: initialStatus
+        });
+
+        // Record a Payment record for this auto-settled due
+        const settings = await Settings.findOne();
+        const prefix = settings?.receiptPrefix || 'NSC-REC';
+        const yearStr = new Date().getFullYear().toString().slice(-2);
+        const count = await Payment.countDocuments();
+        const receiptNumber = `${prefix}-${yearStr}-${(count + 1001).toString()}`;
+
+        await Payment.create({
+          receiptNumber,
+          student: student._id,
+          feeDue: newDue._id,
+          serviceType,
+          billingPeriod,
+          originalFeeAmount: feeAmount,
+          previousPaidAmount: 0,
+          amountPaid: advanceToUse,
+          remainingBalance: remainingAmount,
+          paymentMethod: 'cash',
+          notes: 'Auto-settled from advance fee balance',
+          paymentDate: new Date()
+        });
+
+        generatedDues.push(newDue);
+      } else {
+        const newDue = await FeeDue.create({
+          student: student._id,
+          serviceType,
+          billingPeriod,
+          periodStartDate: periodStart,
+          periodEndDate: periodEnd,
+          dueDate,
+          amount: feeAmount,
+          paidAmount: 0,
+          remainingAmount: feeAmount,
+          status: initialStatus
+        });
+        generatedDues.push(newDue);
+      }
     } else {
-      // Update status if overdue and unpaid
-      if (existing.remainingAmount > 0 && existing.dueDate < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && existing.status === 'due') {
+      // If existing due has remainingAmount and student has advance balance, attempt settlement
+      if (existing.remainingAmount > 0 && student.advanceFeeBalance && student.advanceFeeBalance > 0) {
+        const Student = require('../models/Student');
+        const Payment = require('../models/Payment');
+        const Settings = require('../models/Settings');
+
+        const advanceToUse = Math.min(student.advanceFeeBalance, existing.remainingAmount);
+        const prevPaid = existing.paidAmount;
+        existing.paidAmount += advanceToUse;
+        existing.remainingAmount -= advanceToUse;
+        existing.status = existing.remainingAmount === 0 ? 'paid' : 'partially_paid';
+        await existing.save();
+
+        student.advanceFeeBalance -= advanceToUse;
+        await Student.findByIdAndUpdate(student._id, { advanceFeeBalance: student.advanceFeeBalance });
+
+        const settings = await Settings.findOne();
+        const prefix = settings?.receiptPrefix || 'NSC-REC';
+        const yearStr = new Date().getFullYear().toString().slice(-2);
+        const count = await Payment.countDocuments();
+        const receiptNumber = `${prefix}-${yearStr}-${(count + 1001).toString()}`;
+
+        await Payment.create({
+          receiptNumber,
+          student: student._id,
+          feeDue: existing._id,
+          serviceType,
+          billingPeriod: existing.billingPeriod,
+          originalFeeAmount: existing.amount,
+          previousPaidAmount: prevPaid,
+          amountPaid: advanceToUse,
+          remainingBalance: existing.remainingAmount,
+          paymentMethod: 'cash',
+          notes: 'Auto-settled from advance fee balance',
+          paymentDate: new Date()
+        });
+      } else if (existing.remainingAmount > 0 && existing.dueDate < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && existing.status === 'due') {
         existing.status = 'overdue';
         await existing.save();
       }
