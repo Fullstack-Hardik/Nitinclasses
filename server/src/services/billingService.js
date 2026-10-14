@@ -44,17 +44,9 @@ async function generateDuesForStudent(student, serviceType) {
   let currentYear = joiningYear;
   let currentMonth = joiningMonth;
 
-  while (
-    currentYear < nowYear ||
-    (currentYear === nowYear && currentMonth <= nowMonth)
-  ) {
+  while (true) {
     const periodStart = getAnniversaryDate(currentYear, currentMonth, anniversaryDay);
 
-    // CRITICAL: If the period start date is still in the future relative to today midnight, do not generate it yet!
-    if (periodStart > todayMidnight) {
-      break;
-    }
-    
     // Period end is 1 day before the next anniversary date
     let nextMonth = currentMonth + 1;
     let nextYear = currentYear;
@@ -63,15 +55,23 @@ async function generateDuesForStudent(student, serviceType) {
       nextYear += 1;
     }
     const nextAnniversary = getAnniversaryDate(nextYear, nextMonth, anniversaryDay);
+
+    // MATHEMATICAL RULE: Fee is only due AFTER 1 full month of service has elapsed (at nextAnniversary).
+    // If nextAnniversary is still in the future relative to today midnight,
+    // this month's cycle is currently in progress, so DO NOT add/charge fees for it yet!
+    if (nextAnniversary > todayMidnight) {
+      break;
+    }
+
     const periodEnd = new Date(nextAnniversary.getTime() - 24 * 60 * 60 * 1000);
 
-    // Format billing period string: e.g. "12 Mar 2026 - 11 Apr 2026"
+    // Format billing period string: e.g. "10 Jul 2026 - 09 Aug 2026"
     const startStr = periodStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const endStr = periodEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const billingPeriod = `${startStr} - ${endStr}`;
 
-    // Due date is period start date
-    const dueDate = new Date(periodStart);
+    // Due date is when the 1-month cycle completes (nextAnniversary)
+    const dueDate = new Date(nextAnniversary);
 
     // Check if this fee due already exists
     const existing = await FeeDue.findOne({
