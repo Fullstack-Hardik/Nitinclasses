@@ -113,9 +113,9 @@ export const SettingsPage: React.FC = () => {
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Building className="w-5 h-5 text-slate-600" />
-              Institute & Receipt Branding
+              Receipt Configuration
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Appears on system-generated PDF payment receipts</p>
+            <p className="text-xs text-slate-500 mt-0.5">Customize serial prefix and disclaimer notes on PDF receipts</p>
           </div>
           {saveSuccess && (
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
@@ -126,39 +126,6 @@ export const SettingsPage: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Institute Name</label>
-            <input
-              type="text"
-              required
-              value={settings.instituteName}
-              onChange={(e) => setSettings({ ...settings, instituteName: e.target.value })}
-              className="w-full neu-input px-3.5 py-2.5 text-xs font-semibold"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Contact Phone</label>
-            <input
-              type="text"
-              required
-              value={settings.contactNumber}
-              onChange={(e) => setSettings({ ...settings, contactNumber: e.target.value })}
-              className="w-full neu-input px-3.5 py-2.5 text-xs"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Official Email</label>
-            <input
-              type="email"
-              required
-              value={settings.email}
-              onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-              className="w-full neu-input px-3.5 py-2.5 text-xs"
-            />
-          </div>
-
-          <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">Receipt Prefix Code</label>
             <input
               type="text"
@@ -166,27 +133,19 @@ export const SettingsPage: React.FC = () => {
               value={settings.receiptPrefix}
               onChange={(e) => setSettings({ ...settings, receiptPrefix: e.target.value })}
               className="w-full neu-input px-3.5 py-2.5 text-xs font-bold uppercase"
+              placeholder="e.g. NSC-REC"
             />
+            <p className="text-[11px] text-slate-400 mt-1">Receipt identifiers format: PREFIX-YY-NUMBER</p>
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Premises Address</label>
-            <input
-              type="text"
-              required
-              value={settings.address}
-              onChange={(e) => setSettings({ ...settings, address: e.target.value })}
-              className="w-full neu-input px-3.5 py-2.5 text-xs"
-            />
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Receipt Disclaimer Note</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Receipt Disclaimer / Note</label>
             <textarea
               rows={2}
               value={settings.receiptFooterNote}
               onChange={(e) => setSettings({ ...settings, receiptFooterNote: e.target.value })}
               className="w-full neu-input px-3.5 py-2 text-xs"
+              placeholder="Terms printed at bottom of PDF receipts..."
             />
           </div>
         </div>
@@ -198,7 +157,7 @@ export const SettingsPage: React.FC = () => {
             className="neu-button-primary px-6 py-2.5 text-xs font-bold flex items-center gap-2"
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving Changes...' : 'Save Branding Settings'}
+            {saving ? 'Saving Changes...' : 'Save Receipt Settings'}
           </button>
         </div>
       </form>

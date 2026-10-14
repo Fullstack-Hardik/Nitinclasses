@@ -8,6 +8,7 @@ import { FeesPage } from './components/FeesPage';
 import { LibraryPage } from './components/LibraryPage';
 import { SettingsPage } from './components/SettingsPage';
 import { ToolsPage } from './components/ToolsPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export function App() {
   const [admin, setAdmin] = useState<any>(null);
@@ -90,12 +91,14 @@ export function App() {
 
         {/* Page Container */}
         <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
-          {currentTab === 'dashboard' && <Dashboard onNavigate={(tab) => setCurrentTab(tab)} />}
-          {currentTab === 'students' && <StudentsPage />}
-          {currentTab === 'fees' && <FeesPage />}
-          {currentTab === 'library' && <LibraryPage />}
-          {currentTab === 'tools' && <ToolsPage />}
-          {currentTab === 'settings' && <SettingsPage />}
+          <ErrorBoundary>
+            {currentTab === 'dashboard' && <Dashboard onNavigate={(tab) => setCurrentTab(tab)} />}
+            {currentTab === 'students' && <StudentsPage />}
+            {currentTab === 'fees' && <FeesPage />}
+            {currentTab === 'library' && <LibraryPage />}
+            {currentTab === 'tools' && <ToolsPage />}
+            {currentTab === 'settings' && <SettingsPage />}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

@@ -246,7 +246,8 @@ export const LibraryPage: React.FC = () => {
       });
       if (res.data.success) {
         setShowCapacityModal(false);
-        fetchLibraryData();
+        setSelectedSeat(null);
+        await fetchLibraryData();
       }
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to update capacity.');

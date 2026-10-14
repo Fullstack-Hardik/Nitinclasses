@@ -9,17 +9,34 @@ const initLibrarySeats = async (libraryType, targetCount) => {
   const currentCount = existingSeats.length;
 
   if (currentCount < targetCount) {
+    // Find missing seat numbers or append up to targetCount
+    const existingNumbers = new Set(existingSeats.map(s => s.seatNumber));
     const toCreate = [];
-    for (let i = currentCount + 1; i <= targetCount; i++) {
-      toCreate.push({
-        libraryType,
-        seatNumber: i,
-        status: 'available',
-        assignedStudent: null
-      });
+    for (let i = 1; i <= targetCount; i++) {
+      if (!existingNumbers.has(i)) {
+        toCreate.push({
+          libraryType,
+          seatNumber: i,
+          status: 'available',
+          assignedStudent: null
+        });
+      }
     }
     if (toCreate.length > 0) {
       await Seat.insertMany(toCreate);
+    }
+  } else if (currentCount > targetCount) {
+    // Shrink capacity: safely delete unassigned/unoccupied available/blocked seats above targetCount
+    // Only delete seats above targetCount that are NOT occupied
+    const seatsToDelete = await Seat.find({
+      libraryType,
+      seatNumber: { $gt: targetCount },
+      status: { $ne: 'occupied' }
+    });
+    if (seatsToDelete.length > 0) {
+      await Seat.deleteMany({
+        _id: { $in: seatsToDelete.map(s => s._id) }
+      });
     }
   }
 };
@@ -203,9 +220,25 @@ const configureCapacity = async (req, res) => {
     // Adjust seat documents
     await initLibrarySeats(libraryType, newCount);
 
+    // Invalidate dashboard cache
+    cache.invalidate('dashboard');
+
+    const seats = await Seat.find({ libraryType }).sort({ seatNumber: 1 });
+    const totalSeats = seats.length;
+    const occupiedSeats = seats.filter(s => s.status === 'occupied').length;
+    const blockedSeats = seats.filter(s => s.status === 'blocked').length;
+    const availableSeats = seats.filter(s => s.status === 'available').length;
+
     return res.json({
       success: true,
-      message: `${libraryType.toUpperCase()} library capacity updated to ${newCount} seats.`
+      message: `${libraryType.toUpperCase()} library capacity updated to ${newCount} seats.`,
+      stats: {
+        totalSeats,
+        occupiedSeats,
+        availableSeats,
+        blockedSeats,
+        occupancyRate: totalSeats > 0 ? Math.round((occupiedSeats / totalSeats) * 100) : 0
+      }
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
