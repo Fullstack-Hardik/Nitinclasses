@@ -28,6 +28,15 @@ const login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide both email and password' });
     }
 
+    // Check if database is currently connected (readyState: 1 = connected)
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection is not ready. Please verify Atlas Network Access / IP Whitelist or try again in a few moments.'
+      });
+    }
+
     const admin = await Admin.findOne({ email: email.toLowerCase() });
     if (!admin) {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
