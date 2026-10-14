@@ -285,77 +285,100 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               </span>
             </div>
 
-            {monthlyTrend.length === 0 ? (
-              <div className="py-16 text-center text-xs text-slate-400">
-                No payment data for selected time range.
-              </div>
-            ) : (
-              <div className="pt-4">
-                <div className="h-48 flex items-end justify-between gap-2.5 px-1">
-                  {monthlyTrend.map((m, idx) => {
-                    const total = m.total || 0;
-                    const coaching = m.coaching || 0;
-                    const library = m.library || 0;
+            {(() => {
+              // Ensure we display a complete timeline of months even if backend only returned months with payments
+              const monthsToDisplay = (() => {
+                const now = new Date();
+                let count = 6;
+                if (trendRange === '12_months') count = 12;
+                else if (trendRange === 'current_year') count = now.getMonth() + 1;
 
-                    // Calculate height percentages
-                    const heightPct = total > 0 ? Math.max(10, Math.round((total / maxTrend) * 100)) : 4;
-                    const coachingPct = total > 0 ? Math.round((coaching / total) * 100) : 0;
-                    const libraryPct = total > 0 ? Math.round((library / total) * 100) : 0;
-                    const monthLabel = monthShortNames[m._id.month - 1] || `${m._id.month}`;
+                const fullList = [];
+                for (let i = count - 1; i >= 0; i--) {
+                  const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                  const yr = d.getFullYear();
+                  const mo = d.getMonth() + 1;
+                  const found = monthlyTrend.find(item => item._id && item._id.year === yr && item._id.month === mo);
+                  fullList.push({
+                    _id: { year: yr, month: mo },
+                    total: found?.total || 0,
+                    coaching: found?.coaching || (found?.total || 0),
+                    library: found?.library || 0
+                  });
+                }
+                return fullList;
+              })();
 
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group relative">
-                        {/* Hover Tooltip */}
-                        <div className="absolute -top-12 z-20 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-slate-900 text-white text-[10px] font-mono p-1.5 rounded-lg shadow-xl whitespace-nowrap">
-                          <p className="font-bold text-white">₹{total.toLocaleString('en-IN')}</p>
-                          <p className="text-indigo-300">C: ₹{coaching.toLocaleString('en-IN')}</p>
-                          <p className="text-violet-300">L: ₹{library.toLocaleString('en-IN')}</p>
+              const maxVal = Math.max(...monthsToDisplay.map(m => m.total), 1000);
+
+              return (
+                <div className="pt-4">
+                  <div className="h-48 flex items-end justify-between gap-2.5 px-1">
+                    {monthsToDisplay.map((m, idx) => {
+                      const total = m.total || 0;
+                      const coaching = m.coaching || 0;
+                      const library = m.library || 0;
+
+                      // Height percentage (min 6% so empty months still show an indicator base)
+                      const heightPct = total > 0 ? Math.max(12, Math.round((total / maxVal) * 100)) : 4;
+                      const coachingPct = total > 0 ? Math.round((coaching / total) * 100) : 0;
+                      const libraryPct = total > 0 ? Math.round((library / total) * 100) : 0;
+                      const monthLabel = monthShortNames[m._id.month - 1] || `${m._id.month}`;
+
+                      return (
+                        <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+                          {/* Tooltip on hover */}
+                          <div className="absolute -top-12 z-20 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-[#101828] text-white text-[10px] font-mono p-1.5 rounded-md shadow-lg whitespace-nowrap">
+                            <p className="font-bold text-white">₹{total.toLocaleString('en-IN')}</p>
+                            <p className="text-blue-300">Coaching: ₹{coaching.toLocaleString('en-IN')}</p>
+                            <p className="text-purple-300">Library: ₹{library.toLocaleString('en-IN')}</p>
+                          </div>
+
+                          {/* Top Value Label */}
+                          <span className={`text-[10px] font-bold font-mono transition text-center whitespace-nowrap ${
+                            total > 0 ? 'text-[#101828]' : 'text-slate-400'
+                          }`}>
+                            {total > 0 ? `₹${total}` : '₹0'}
+                          </span>
+
+                          {/* Bar Track Container */}
+                          <div className="w-full bg-[#F5F7FB] rounded-lg h-36 flex items-end p-1 overflow-hidden border border-[#E5E9F0]">
+                            {total > 0 ? (
+                              <div 
+                                className="w-full rounded-md transition-all duration-500 overflow-hidden flex flex-col justify-end"
+                                style={{ height: `${heightPct}%` }}
+                              >
+                                {libraryPct > 0 && (
+                                  <div 
+                                    className="w-full bg-[#8B5CF6] transition-all" 
+                                    style={{ height: `${libraryPct}%` }} 
+                                    title={`Library: ₹${library}`}
+                                  />
+                                )}
+                                {coachingPct > 0 && (
+                                  <div 
+                                    className="w-full bg-[#1765D1] transition-all" 
+                                    style={{ height: `${coachingPct}%` }} 
+                                    title={`Coaching: ₹${coaching}`}
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div className="w-full h-1 bg-slate-200 rounded-full" />
+                            )}
+                          </div>
+
+                          {/* Month Axis Label */}
+                          <span className="text-[11px] font-semibold text-[#667085] font-mono">
+                            {monthLabel} '{String(m._id.year).slice(-2)}
+                          </span>
                         </div>
-
-                        {/* Top total label */}
-                        <span className="text-[10px] font-bold font-mono transition text-center whitespace-nowrap ${
-                          total > 0 ? 'text-slate-800' : 'text-slate-300'
-                        }">
-                          {total > 0 ? `₹${total}` : '₹0'}
-                        </span>
-
-                        {/* Bar Track Container */}
-                        <div className="w-full bg-slate-100 rounded-xl h-36 flex items-end p-1 overflow-hidden border border-slate-200/50">
-                          {total > 0 ? (
-                            <div 
-                              className="w-full rounded-lg transition-all duration-700 overflow-hidden flex flex-col justify-end shadow-xs"
-                              style={{ height: `${heightPct}%` }}
-                            >
-                              {libraryPct > 0 && (
-                                <div 
-                                  className="w-full bg-violet-600 transition-all" 
-                                  style={{ height: `${libraryPct}%` }} 
-                                  title={`Library: ₹${library}`}
-                                />
-                              )}
-                              {coachingPct > 0 && (
-                                <div 
-                                  className="w-full bg-indigo-600 transition-all" 
-                                  style={{ height: `${coachingPct}%` }} 
-                                  title={`Coaching: ₹${coaching}`}
-                                />
-                              )}
-                            </div>
-                          ) : (
-                            <div className="w-full h-1 bg-slate-300/60 rounded-full" />
-                          )}
-                        </div>
-
-                        {/* Month Axis Label */}
-                        <span className="text-[11px] font-bold text-slate-600 font-mono">
-                          {monthLabel} '{String(m._id.year).slice(-2)}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           <div className="pt-4 mt-2 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
