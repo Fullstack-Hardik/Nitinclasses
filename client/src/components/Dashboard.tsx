@@ -281,6 +281,124 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Actionable Sections: Due Today, Due This Week, Upcoming Fees */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 1. Due Today */}
+        <div className="neu-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 mb-3">
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500" />
+                Due Today ({stats.dueToday?.length || 0})
+              </h2>
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                Action Required
+              </span>
+            </div>
+
+            {(!stats.dueToday || stats.dueToday.length === 0) ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-1.5 opacity-80" />
+                No student fees due today.
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                {stats.dueToday.map((due) => (
+                  <div key={due._id} className="p-3 rounded-xl bg-white border border-slate-200/70 text-xs flex items-center justify-between shadow-xs">
+                    <div>
+                      <p className="font-bold text-slate-900">{due.student?.fullName || 'Student'}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">ID: {due.student?.studentId} • {due.serviceType.toUpperCase()}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-extrabold text-amber-600">₹{due.remainingAmount}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 2. Fees Due This Week */}
+        <div className="neu-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 mb-3">
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-500" />
+                Due This Week ({stats.dueThisWeek?.length || 0})
+              </h2>
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                Current Week
+              </span>
+            </div>
+
+            {(!stats.dueThisWeek || stats.dueThisWeek.length === 0) ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-1.5 opacity-80" />
+                All weekly fees up to date.
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                {stats.dueThisWeek.map((due) => (
+                  <div key={due._id} className="p-3 rounded-xl bg-white border border-slate-200/70 text-xs flex items-center justify-between shadow-xs">
+                    <div>
+                      <p className="font-bold text-slate-900">{due.student?.fullName || 'Student'}</p>
+                      <p className="text-[10px] text-slate-400">Due: {new Date(due.dueDate).toLocaleDateString('en-GB')}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-extrabold text-slate-800">₹{due.remainingAmount}</span>
+                      <p className="text-[10px] text-slate-400 capitalize">{due.serviceType}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 3. Upcoming Fees (Next 7 Days Preview) */}
+        <div className="neu-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 mb-3">
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-indigo-500" />
+                Upcoming Reminders ({stats.upcoming?.length || 0})
+              </h2>
+              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                Next 7 Days
+              </span>
+            </div>
+
+            {(!stats.upcoming || stats.upcoming.length === 0) ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                <CheckCircle2 className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
+                No fees approaching within 7 days.
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                {stats.upcoming.map((due) => {
+                  const daysLeft = Math.ceil((new Date(due.dueDate).getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+                  return (
+                    <div key={due._id} className="p-3 rounded-xl bg-white border border-slate-200/70 text-xs flex items-center justify-between shadow-xs">
+                      <div>
+                        <p className="font-bold text-slate-900">{due.student?.fullName || 'Student'}</p>
+                        <p className="text-[10px] text-indigo-600 font-semibold">
+                          {daysLeft === 1 ? 'Due Tomorrow' : `In ${daysLeft} days`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-slate-700">₹{due.remainingAmount}</span>
+                        <p className="text-[10px] text-slate-400 capitalize">{due.serviceType}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

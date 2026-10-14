@@ -99,11 +99,14 @@ export const FeesPage: React.FC = () => {
           />
         </form>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Status Tabs: Due Today, Pending, Overdue, Paid, All */}
-          <div className="flex items-center gap-1 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {/* Status Tabs */}
+          <div className="flex flex-wrap items-center gap-1 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
             {[
               { id: 'all', label: 'All' },
+              { id: 'current_month', label: 'Current Month' },
+              { id: 'due_this_week', label: 'This Week' },
+              { id: 'upcoming', label: 'Upcoming' },
               { id: 'due_today', label: 'Due Today' },
               { id: 'pending', label: 'Pending' },
               { id: 'overdue', label: 'Overdue' },
@@ -113,9 +116,9 @@ export const FeesPage: React.FC = () => {
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id as any)}
                 className={`
-                  px-3 py-1.5 rounded-lg transition-all
+                  px-2.5 py-1.5 rounded-lg transition-all text-xs
                   ${statusFilter === tab.id
-                    ? 'bg-white text-slate-900 shadow-sm'
+                    ? 'bg-white text-slate-900 shadow-sm font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                   }
                 `}
@@ -135,6 +138,31 @@ export const FeesPage: React.FC = () => {
             <option value="coaching">Coaching Only</option>
             <option value="library">Library Only</option>
           </select>
+
+          {/* Export to Excel action */}
+          <button
+            onClick={async () => {
+              try {
+                const response = await api.get('/settings/export/payments', {
+                  responseType: 'blob'
+                });
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `Fee_Receipts_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.parentNode?.removeChild(link);
+              } catch (err: any) {
+                alert('Export failed: ' + (err.message || 'Error occurred'));
+              }
+            }}
+            className="neu-button px-3 py-1.5 text-xs font-bold text-slate-700 flex items-center gap-1.5"
+            title="Export all fee payments to Excel"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            Export Fees
+          </button>
         </div>
       </div>
 

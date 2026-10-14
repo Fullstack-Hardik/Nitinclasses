@@ -6,7 +6,8 @@ import {
   BookOpen, 
   Eye, 
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import api from '../services/api';
 import { Student } from '../types';
@@ -60,13 +61,39 @@ export const StudentsPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Student Directory</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage admissions, memberships, and records</p>
         </div>
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="neu-button-primary px-5 py-2.5 text-xs font-bold flex items-center justify-center gap-2"
-        >
-          <UserPlus className="w-4 h-4" />
-          Enroll New Student
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={async () => {
+              try {
+                const response = await api.get('/settings/export/students', {
+                  responseType: 'blob'
+                });
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `Students_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.parentNode?.removeChild(link);
+              } catch (err: any) {
+                alert('Export failed: ' + (err.message || 'Error occurred'));
+              }
+            }}
+            className="neu-button px-4 py-2.5 text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:text-slate-900"
+            title="Export full student records to Excel"
+          >
+            <Download className="w-4 h-4 text-emerald-600" />
+            Export to Excel
+          </button>
+
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="neu-button-primary px-5 py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            Enroll New Student
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}

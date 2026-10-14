@@ -134,8 +134,27 @@ const createStudent = async (req, res) => {
     }
 
     // Mobile check
-    if (!/^\d{10}$/.test(mobileNumber.trim())) {
+    const cleanMobile = mobileNumber.trim();
+    if (!/^\d{10}$/.test(cleanMobile)) {
       return res.status(400).json({ success: false, message: 'Please provide a valid 10-digit mobile number.' });
+    }
+
+    // Duplicate detection: Prevent creating duplicate active students with identical mobile number
+    const existingStudent = await Student.findOne({
+      mobileNumber: cleanMobile,
+      isArchived: false
+    });
+
+    if (existingStudent) {
+      return res.status(409).json({
+        success: false,
+        message: `A student named "${existingStudent.fullName}" is already registered with mobile number ${cleanMobile} (Student ID: ${existingStudent.studentId}). Please manage the existing student record instead of creating a duplicate.`,
+        existingStudent: {
+          id: existingStudent._id,
+          studentId: existingStudent.studentId,
+          fullName: existingStudent.fullName
+        }
+      });
     }
 
     const studentId = await generateStudentId();

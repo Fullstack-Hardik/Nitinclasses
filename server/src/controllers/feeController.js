@@ -29,20 +29,73 @@ const getFeeDues = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const now = new Date();
+
     if (status === 'due_today') {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       query.dueDate = { $gte: today, $lt: tomorrow };
+      query.remainingAmount = { $gt: 0 };
+    } else if (status === 'due_this_week') {
+      // Current calendar week (Monday to Sunday)
+      const dayOfWeek = today.getDay(); // 0 is Sunday
+      const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 7);
+
+      query.dueDate = { $gte: monday, $lt: sunday };
+      query.remainingAmount = { $gt: 0 };
+    } else if (status === 'upcoming') {
+      // Due in the next 7 days from tomorrow
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 8);
+      query.dueDate = { $gte: tomorrow, $lt: nextWeek };
       query.remainingAmount = { $gt: 0 };
     } else if (status === 'pending') {
       query.remainingAmount = { $gt: 0 };
       query.status = { $in: ['due', 'partially_paid'] };
     } else if (status === 'overdue') {
       query.remainingAmount = { $gt: 0 };
-      query.status = 'overdue';
+      query.dueDate = { $lt: today };
     } else if (status === 'paid') {
       query.remainingAmount = 0;
-      query.status = 'paid';
+    } else if (status === 'current_month') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const nextMonthFirstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      query.dueDate = { $gte: firstDay, $lt: nextMonthFirstDay };
+    }
+
+    // Month & Year Filter (e.g. month=9, year=2026)
+    const { month, year, startDate, endDate } = req.query;
+    if (year) {
+      const y = Number(year);
+      if (!isNaN(y)) {
+        if (month !== undefined && month !== 'all' && month !== '') {
+          const m = Number(month); // 0-indexed or 1-indexed
+          const validMonth = m >= 1 && m <= 12 ? m - 1 : m;
+          const startM = new Date(y, validMonth, 1);
+          const endM = new Date(y, validMonth + 1, 1);
+          query.dueDate = { ...query.dueDate, $gte: startM, $lt: endM };
+        } else {
+          const startY = new Date(y, 0, 1);
+          const endY = new Date(y + 1, 0, 1);
+          query.dueDate = { ...query.dueDate, $gte: startY, $lt: endY };
+        }
+      }
+    }
+
+    // Custom Date Range Filter
+    if (startDate && endDate) {
+      const s = new Date(startDate);
+      const e = new Date(endDate);
+      e.setHours(23, 59, 59, 999);
+      query.dueDate = { ...query.dueDate, $gte: s, $lte: e };
     }
 
     let dues = await FeeDue.find(query)

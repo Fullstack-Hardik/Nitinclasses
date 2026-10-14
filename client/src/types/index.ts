@@ -92,6 +92,9 @@ export interface DashboardStats {
     libraryCollection: number;
     totalCollections: number;
   };
+  dueThisWeek?: FeeDue[];
+  dueToday?: FeeDue[];
+  upcoming?: FeeDue[];
   monthlyTrend: Array<{
     _id: { year: number; month: number };
     total: number;
