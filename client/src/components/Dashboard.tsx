@@ -13,6 +13,8 @@ import {
 import api from '../services/api';
 import { DashboardStats } from '../types';
 
+import { SplitText } from './SplitText';
+
 export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,8 +70,20 @@ export const Dashboard: React.FC = () => {
       {/* Top Header / Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Admin Overview</h1>
-          <p className="text-sm text-slate-500 mt-1">Live metrics from database records</p>
+          <SplitText
+            text="Hello Nitin, Welcome Back!"
+            className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight"
+            delay={40}
+            duration={0.6}
+            ease="power3.out"
+            splitType="chars"
+            from={{ opacity: 0, y: 30 }}
+            to={{ opacity: 1, y: 0 }}
+            threshold={0.1}
+            textAlign="left"
+            tag="h1"
+          />
+          <p className="text-sm text-slate-500 mt-1">Live metrics from database records & coaching operations</p>
         </div>
         <div className="flex items-center gap-2">
           <button 

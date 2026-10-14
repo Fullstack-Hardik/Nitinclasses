@@ -7,6 +7,7 @@ import { StudentsPage } from './components/StudentsPage';
 import { FeesPage } from './components/FeesPage';
 import { LibraryPage } from './components/LibraryPage';
 import { SettingsPage } from './components/SettingsPage';
+import { ToolsPage } from './components/ToolsPage';
 
 export function App() {
   const [admin, setAdmin] = useState<any>(null);
@@ -93,6 +94,7 @@ export function App() {
           {currentTab === 'students' && <StudentsPage />}
           {currentTab === 'fees' && <FeesPage />}
           {currentTab === 'library' && <LibraryPage />}
+          {currentTab === 'tools' && <ToolsPage />}
           {currentTab === 'settings' && <SettingsPage />}
         </main>
       </div>

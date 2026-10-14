@@ -30,7 +30,9 @@ const updateSettings = async (req, res) => {
       receiptFooterNote,
       boysLibraryTotalSeats,
       girlsLibraryTotalSeats,
-      smartModeEnabled
+      smartModeEnabled,
+      adminNotes,
+      adminTodos
     } = req.body;
 
     let settings = await Settings.findOne();
@@ -47,6 +49,8 @@ const updateSettings = async (req, res) => {
     if (boysLibraryTotalSeats !== undefined) settings.boysLibraryTotalSeats = Number(boysLibraryTotalSeats);
     if (girlsLibraryTotalSeats !== undefined) settings.girlsLibraryTotalSeats = Number(girlsLibraryTotalSeats);
     if (smartModeEnabled !== undefined) settings.smartModeEnabled = Boolean(smartModeEnabled);
+    if (adminNotes !== undefined) settings.adminNotes = adminNotes;
+    if (adminTodos !== undefined) settings.adminTodos = adminTodos;
 
     await settings.save();
     return res.json({ success: true, message: 'Settings updated successfully', data: settings });

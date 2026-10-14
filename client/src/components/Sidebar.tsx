@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -7,7 +6,8 @@ import {
   Settings as SettingsIcon, 
   LogOut, 
   X,
-  GraduationCap
+  GraduationCap,
+  Wrench
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -32,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'students', label: 'Students', icon: Users },
     { id: 'fees', label: 'Coaching Fees', icon: CreditCard },
     { id: 'library', label: 'Library Management', icon: BookOpen },
+    { id: 'tools', label: 'Admin Tools', icon: Wrench },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 

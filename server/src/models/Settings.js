@@ -36,7 +36,16 @@ const settingsSchema = new mongoose.Schema({
   smartModeEnabled: {
     type: Boolean,
     default: false
-  }
+  },
+  adminNotes: {
+    type: String,
+    default: ''
+  },
+  adminTodos: [{
+    text: { type: String, required: true },
+    completed: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settings', settingsSchema);
