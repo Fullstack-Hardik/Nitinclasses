@@ -32,6 +32,7 @@ const updateSettings = async (req, res) => {
       girlsLibraryTotalSeats,
       smartModeEnabled,
       adminNotes,
+      adminNoteFiles,
       adminTodos
     } = req.body;
 
@@ -50,6 +51,7 @@ const updateSettings = async (req, res) => {
     if (girlsLibraryTotalSeats !== undefined) settings.girlsLibraryTotalSeats = Number(girlsLibraryTotalSeats);
     if (smartModeEnabled !== undefined) settings.smartModeEnabled = Boolean(smartModeEnabled);
     if (adminNotes !== undefined) settings.adminNotes = adminNotes;
+    if (adminNoteFiles !== undefined) settings.adminNoteFiles = adminNoteFiles;
     if (adminTodos !== undefined) settings.adminTodos = adminTodos;
 
     await settings.save();
