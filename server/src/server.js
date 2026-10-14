@@ -19,22 +19,34 @@ const app = express();
 // Security Middlewares
 app.use(helmet());
 
-// CORS configuration for Render backend & Vercel frontend / local dev
+// CORS configuration for Render backend & Vercel frontend / custom domains
+const rawClientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.trim().replace(/\/+$/, '') : '';
+const clientUrlWithHttps = rawClientUrl && !rawClientUrl.startsWith('http') ? `https://${rawClientUrl}` : rawClientUrl;
+const clientUrlWithHttp = rawClientUrl && !rawClientUrl.startsWith('http') ? `http://${rawClientUrl}` : rawClientUrl;
+
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  process.env.CLIENT_URL
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+  clientUrlWithHttps,
+  clientUrlWithHttp,
+  'https://nitinclass.com',
+  'http://nitinclass.com',
+  'https://www.nitinclass.com',
+  'http://www.nitinclass.com'
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (like mobile apps, curl, postman)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
-    // Allow any vercel preview deployment or production if needed
-    if (origin.endsWith('.vercel.app')) {
+    if (
+      allowedOrigins.includes(origin) ||
+      process.env.NODE_ENV !== 'production' ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('nitinclass.com')
+    ) {
       return callback(null, true);
     }
     return callback(new Error('CORS policy does not allow access from specified origin'), false);

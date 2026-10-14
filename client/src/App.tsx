@@ -27,6 +27,15 @@ export function App() {
       }
     }
     setCheckingAuth(false);
+
+    const handleUnauthorized = () => {
+      setAdmin(null);
+    };
+
+    window.addEventListener('nsc_unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('nsc_unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const handleLogout = () => {
