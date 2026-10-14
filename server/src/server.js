@@ -14,7 +14,8 @@ const libraryRoutes = require('./routes/libraryRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 
-const app = express();
+// Enable trust proxy for reverse proxies (Render, Vercel, Nginx, Cloudflare)
+app.set('trust proxy', 1);
 
 // Security Middlewares - JSON REST API setup
 app.use(helmet({
@@ -44,15 +45,18 @@ app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (like mobile apps, curl, postman)
     if (!origin) return callback(null, true);
-    if (
+    
+    const isAllowed = 
       allowedOrigins.includes(origin) ||
       process.env.NODE_ENV !== 'production' ||
       origin.endsWith('.vercel.app') ||
-      origin.includes('nitinclass.com')
-    ) {
+      origin.includes('nitinclass.com');
+
+    if (isAllowed) {
       return callback(null, true);
     }
-    return callback(new Error('CORS policy does not allow access from specified origin'), false);
+    // Return false instead of throwing Error so Express doesn't crash into 500
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
