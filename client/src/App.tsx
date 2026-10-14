@@ -90,7 +90,7 @@ export function App() {
 
         {/* Page Container */}
         <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
-          {currentTab === 'dashboard' && <Dashboard />}
+          {currentTab === 'dashboard' && <Dashboard onNavigate={(tab) => setCurrentTab(tab)} />}
           {currentTab === 'students' && <StudentsPage />}
           {currentTab === 'fees' && <FeesPage />}
           {currentTab === 'library' && <LibraryPage />}
