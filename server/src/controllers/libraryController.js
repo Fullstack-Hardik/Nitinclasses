@@ -1,6 +1,7 @@
 const Seat = require('../models/Seat');
 const Student = require('../models/Student');
 const Settings = require('../models/Settings');
+const cache = require('../services/cacheService');
 
 // Initialize or ensure seats match configured capacity
 const initLibrarySeats = async (libraryType, targetCount) => {
@@ -112,6 +113,9 @@ const allocateSeat = async (req, res) => {
     student.library.libraryType = libraryType;
     await student.save();
 
+    // Invalidate dashboard cache for seat occupancy updates
+    cache.invalidate('dashboard');
+
     return res.json({
       success: true,
       message: `Seat #${seatNumber} successfully allocated to ${student.fullName}.`,
@@ -140,6 +144,9 @@ const releaseSeat = async (req, res) => {
     seat.assignedStudent = null;
     seat.assignedAt = null;
     await seat.save();
+
+    // Invalidate dashboard cache
+    cache.invalidate('dashboard');
 
     return res.json({ success: true, message: `Seat #${seatNumber} is now released and available.` });
   } catch (error) {

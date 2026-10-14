@@ -2,11 +2,16 @@ const Student = require('../models/Student');
 const Payment = require('../models/Payment');
 const FeeDue = require('../models/FeeDue');
 const Seat = require('../models/Seat');
+const cache = require('../services/cacheService');
 
 // GET /api/dashboard/stats
 const getDashboardStats = async (req, res) => {
   try {
-    const { range } = req.query; // 'today' | 'this_month' | 'this_year' | 'all'
+    const cacheKey = 'dashboard_stats';
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json({ success: true, data: cachedData, cached: true });
+    }
 
     // Real DB Counts
     const totalStudents = await Student.countDocuments({ isArchived: false });
@@ -22,11 +27,11 @@ const getDashboardStats = async (req, res) => {
     });
 
     // Library Occupancies
-    const boysSeats = await Seat.find({ libraryType: 'boys' });
+    const boysSeats = await Seat.find({ libraryType: 'boys' }).select('status');
     const boysOccupied = boysSeats.filter(s => s.status === 'occupied').length;
     const boysTotal = boysSeats.length || 50;
 
-    const girlsSeats = await Seat.find({ libraryType: 'girls' });
+    const girlsSeats = await Seat.find({ libraryType: 'girls' }).select('status');
     const girlsOccupied = girlsSeats.filter(s => s.status === 'occupied').length;
     const girlsTotal = girlsSeats.length || 50;
 
@@ -116,38 +121,43 @@ const getDashboardStats = async (req, res) => {
       { $sort: { '_id.year': 1, '_id.month': 1 } }
     ]);
 
+    const responseData = {
+      summary: {
+        totalStudents,
+        coachingStudents,
+        libraryStudents,
+        totalFeesCollectedToday: todayPayments ? todayPayments.total : 0,
+        totalFeesCollectedThisMonth: monthPayments ? monthPayments.total : 0,
+        totalOutstandingFees: outstandingDues ? outstandingDues.total : 0,
+        overdueFees: overdueDues ? overdueDues.total : 0,
+        boysLibraryOccupancy: {
+          occupied: boysOccupied,
+          total: boysTotal,
+          percentage: boysTotal > 0 ? Math.round((boysOccupied / boysTotal) * 100) : 0
+        },
+        girlsLibraryOccupancy: {
+          occupied: girlsOccupied,
+          total: girlsTotal,
+          percentage: girlsTotal > 0 ? Math.round((girlsOccupied / girlsTotal) * 100) : 0
+        }
+      },
+      breakdown: {
+        coachingCollection,
+        libraryCollection,
+        totalCollections: coachingCollection + libraryCollection
+      },
+      dueThisWeek: dueThisWeekList,
+      dueToday: dueTodayList,
+      upcoming: upcomingList,
+      monthlyTrend
+    };
+
+    // Cache dashboard response for 30 seconds
+    cache.set(cacheKey, responseData, 30000);
+
     return res.json({
       success: true,
-      data: {
-        summary: {
-          totalStudents,
-          coachingStudents,
-          libraryStudents,
-          totalFeesCollectedToday: todayPayments ? todayPayments.total : 0,
-          totalFeesCollectedThisMonth: monthPayments ? monthPayments.total : 0,
-          totalOutstandingFees: outstandingDues ? outstandingDues.total : 0,
-          overdueFees: overdueDues ? overdueDues.total : 0,
-          boysLibraryOccupancy: {
-            occupied: boysOccupied,
-            total: boysTotal,
-            percentage: boysTotal > 0 ? Math.round((boysOccupied / boysTotal) * 100) : 0
-          },
-          girlsLibraryOccupancy: {
-            occupied: girlsOccupied,
-            total: girlsTotal,
-            percentage: girlsTotal > 0 ? Math.round((girlsOccupied / girlsTotal) * 100) : 0
-          }
-        },
-        breakdown: {
-          coachingCollection,
-          libraryCollection,
-          totalCollections: coachingCollection + libraryCollection
-        },
-        dueThisWeek: dueThisWeekList,
-        dueToday: dueTodayList,
-        upcoming: upcomingList,
-        monthlyTrend
-      }
+      data: responseData
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

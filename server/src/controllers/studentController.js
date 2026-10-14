@@ -3,6 +3,7 @@ const Seat = require('../models/Seat');
 const FeeDue = require('../models/FeeDue');
 const Payment = require('../models/Payment');
 const AuditLog = require('../models/AuditLog');
+const cache = require('../services/cacheService');
 const { generateDuesForStudent } = require('../services/billingService');
 
 // Helper to auto-generate unique Student ID (e.g. NSC-1001)
@@ -227,6 +228,9 @@ const createStudent = async (req, res) => {
       await generateDuesForStudent(student, 'library');
     }
 
+    // Invalidate dashboard and stats cache
+    cache.invalidate('dashboard');
+
     return res.status(201).json({
       success: true,
       message: 'Student registered successfully',
@@ -349,6 +353,9 @@ const updateStudent = async (req, res) => {
     if (student.coaching.hasMembership) await generateDuesForStudent(student, 'coaching');
     if (student.library.hasMembership) await generateDuesForStudent(student, 'library');
 
+    // Invalidate dashboard cache
+    cache.invalidate('dashboard');
+
     return res.json({ success: true, message: 'Student updated successfully', data: student });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -401,6 +408,9 @@ const deleteStudent = async (req, res) => {
       },
       ipAddress: req.ip
     });
+
+    // Invalidate dashboard cache
+    cache.invalidate('dashboard');
 
     return res.json({
       success: true,

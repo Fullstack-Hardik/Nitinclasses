@@ -2,6 +2,7 @@ const FeeDue = require('../models/FeeDue');
 const Payment = require('../models/Payment');
 const Student = require('../models/Student');
 const Settings = require('../models/Settings');
+const cache = require('../services/cacheService');
 const { generateReceiptPDF, generateStudentFeeStatementPDF } = require('../services/receiptService');
 const { syncAllStudentsDues } = require('../services/billingService');
 
@@ -195,6 +196,9 @@ const collectPayment = async (req, res) => {
       paymentDate: new Date()
     });
 
+    // Invalidate dashboard cache
+    cache.invalidate('dashboard');
+
     return res.status(201).json({
       success: true,
       message: excessToAdvance > 0
@@ -317,6 +321,9 @@ const collectStudentFeeDirect = async (req, res) => {
 
     const primaryPayment = settledPayments[0] || advancePaymentRecord;
 
+    // Invalidate dashboard cache
+    cache.invalidate('dashboard');
+
     return res.status(201).json({
       success: true,
       message: excessToAdvance > 0
@@ -357,6 +364,7 @@ const downloadReceipt = async (req, res) => {
 const syncDues = async (req, res) => {
   try {
     await syncAllStudentsDues();
+    cache.invalidate('dashboard');
     return res.json({ success: true, message: 'Recurring billing dues generated successfully.' });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -416,6 +424,9 @@ const manipulateFeeDue = async (req, res) => {
     }
 
     await feeDue.save();
+
+    // Invalidate dashboard cache
+    cache.invalidate('dashboard');
 
     return res.json({
       success: true,

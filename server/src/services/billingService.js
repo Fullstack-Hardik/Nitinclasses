@@ -21,13 +21,21 @@ async function generateDuesForStudent(student, serviceType) {
     return [];
   }
 
-  const rawJoining = new Date(service.joiningDate);
-  const joiningYear = rawJoining.getUTCFullYear();
-  const joiningMonth = rawJoining.getUTCMonth();
-  const anniversaryDay = rawJoining.getUTCDate();
+  // Extract year, month, day in IST (Indian Standard Time) to prevent any 5.5hr UTC drift
+  const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const [jYearStr, jMonthStr, jDayStr] = istFormatter.format(new Date(service.joiningDate)).split('-');
+  const joiningYear = Number(jYearStr);
+  const joiningMonth = Number(jMonthStr) - 1; // 0-indexed month
+  const anniversaryDay = Number(jDayStr);
 
   const now = new Date();
-  const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+  const [nYearStr, nMonthStr, nDayStr] = istFormatter.format(now).split('-');
+  const nowYear = Number(nYearStr);
+  const nowMonth = Number(nMonthStr) - 1;
+  const nowDay = Number(nDayStr);
+
+  // Today in UTC representing midnight IST date
+  const todayMidnight = new Date(Date.UTC(nowYear, nowMonth, nowDay, 23, 59, 59, 999));
 
   const feeAmount = service.monthlyFee;
   const generatedDues = [];
@@ -35,9 +43,6 @@ async function generateDuesForStudent(student, serviceType) {
   // Start from joining month/year up to current month/year
   let currentYear = joiningYear;
   let currentMonth = joiningMonth;
-
-  const nowYear = now.getUTCFullYear();
-  const nowMonth = now.getUTCMonth();
 
   while (
     currentYear < nowYear ||

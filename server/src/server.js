@@ -25,6 +25,14 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
+// Prevent private financial records from being cached by public intermediate proxies
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // CORS configuration for Render backend & Vercel frontend / custom domains
 const rawClientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.trim().replace(/\/+$/, '') : '';
 const clientUrlWithHttps = rawClientUrl && !rawClientUrl.startsWith('http') ? `https://${rawClientUrl}` : rawClientUrl;

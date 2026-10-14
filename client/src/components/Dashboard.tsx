@@ -18,7 +18,7 @@ import {
   Search,
   ChevronRight
 } from 'lucide-react';
-import api from '../services/api';
+import api, { cachedGet, invalidateClientCache } from '../services/api';
 import { DashboardStats } from '../types';
 import { SplitText } from './SplitText';
 
@@ -31,11 +31,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  const fetchStats = async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.get('/dashboard/stats');
+      if (forceRefresh) {
+        invalidateClientCache('dashboard');
+      }
+      const res = await cachedGet<any>('/dashboard/stats');
       if (res.data.success) {
         setStats(res.data.data);
       }
@@ -67,7 +70,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
         <h3 className="text-base font-bold text-slate-800 mb-1">Failed to Load Dashboard</h3>
         <p className="text-sm text-slate-500 mb-4">{error || 'Could not fetch summary data.'}</p>
-        <button onClick={fetchStats} className="neu-button px-5 py-2 text-sm font-semibold text-slate-800">
+        <button onClick={() => fetchStats(true)} className="neu-button px-5 py-2 text-sm font-semibold text-slate-800">
           Retry Loading
         </button>
       </div>
@@ -128,7 +131,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             Tools Dock
           </button>
           <button 
-            onClick={fetchStats}
+            onClick={() => fetchStats(true)}
             title="Refresh database records"
             className="neu-button p-2 text-slate-600 hover:text-slate-900"
           >
