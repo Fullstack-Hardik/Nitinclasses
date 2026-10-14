@@ -20,13 +20,15 @@ interface StudentProfileModalProps {
   onClose: () => void;
   onDeleted: () => void;
   onRefreshList: () => void;
+  onEdit?: (student: Student) => void;
 }
 
 export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   studentId,
   onClose,
   onDeleted,
-  onRefreshList
+  onRefreshList,
+  onEdit
 }) => {
   const [data, setData] = useState<{
     student: Student;
@@ -160,6 +162,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <Download className="w-3.5 h-3.5" />
               Download Full Receipt & Statement
             </button>
+            {onEdit && data?.student && (
+              <button
+                type="button"
+                onClick={() => {
+                  onEdit(data.student);
+                  onClose();
+                }}
+                className="neu-button px-3 py-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1.5"
+                title="Edit student details & fees"
+              >
+                Edit Student Details
+              </button>
+            )}
             <button 
               onClick={onClose}
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition"

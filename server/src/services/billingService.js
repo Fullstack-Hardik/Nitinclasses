@@ -5,10 +5,10 @@ const FeeDue = require('../models/FeeDue');
  * E.g., if anniversary day is 31st, for February it uses 28/29, for April 30.
  */
 function getAnniversaryDate(year, monthIndex, targetDay) {
-  // Days in monthIndex (0-based)
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  // Days in monthIndex (0-based) using UTC midnight
+  const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
   const validDay = Math.min(targetDay, daysInMonth);
-  return new Date(year, monthIndex, validDay);
+  return new Date(Date.UTC(year, monthIndex, validDay, 0, 0, 0, 0));
 }
 
 /**
@@ -21,19 +21,23 @@ async function generateDuesForStudent(student, serviceType) {
     return [];
   }
 
-  const joiningDate = new Date(service.joiningDate);
-  const now = new Date();
-  const feeAmount = service.monthlyFee;
-  const anniversaryDay = joiningDate.getDate();
+  const rawJoining = new Date(service.joiningDate);
+  const joiningYear = rawJoining.getUTCFullYear();
+  const joiningMonth = rawJoining.getUTCMonth();
+  const anniversaryDay = rawJoining.getUTCDate();
 
+  const now = new Date();
+  const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+
+  const feeAmount = service.monthlyFee;
   const generatedDues = [];
 
   // Start from joining month/year up to current month/year
-  let currentYear = joiningDate.getFullYear();
-  let currentMonth = joiningDate.getMonth();
+  let currentYear = joiningYear;
+  let currentMonth = joiningMonth;
 
-  const nowYear = now.getFullYear();
-  const nowMonth = now.getMonth();
+  const nowYear = now.getUTCFullYear();
+  const nowMonth = now.getUTCMonth();
 
   while (
     currentYear < nowYear ||
@@ -41,9 +45,8 @@ async function generateDuesForStudent(student, serviceType) {
   ) {
     const periodStart = getAnniversaryDate(currentYear, currentMonth, anniversaryDay);
 
-    // CRITICAL: If the period start date is still in the future, do not generate it yet!
-    // A fee cycle only becomes due once the anniversary day has actually arrived.
-    if (periodStart > now) {
+    // CRITICAL: If the period start date is still in the future relative to today midnight, do not generate it yet!
+    if (periodStart > todayMidnight) {
       break;
     }
     
@@ -58,8 +61,8 @@ async function generateDuesForStudent(student, serviceType) {
     const periodEnd = new Date(nextAnniversary.getTime() - 24 * 60 * 60 * 1000);
 
     // Format billing period string: e.g. "12 Mar 2026 - 11 Apr 2026"
-    const startStr = periodStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const endStr = periodEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const startStr = periodStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const endStr = periodEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const billingPeriod = `${startStr} - ${endStr}`;
 
     // Due date is period start date

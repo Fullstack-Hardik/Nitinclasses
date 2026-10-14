@@ -111,4 +111,5 @@ export interface SettingsData {
   receiptFooterNote: string;
   boysLibraryTotalSeats: number;
   girlsLibraryTotalSeats: number;
+  smartModeEnabled?: boolean;
 }

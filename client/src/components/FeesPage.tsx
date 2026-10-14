@@ -9,11 +9,13 @@ import {
   IndianRupee,
   CheckCircle2,
   Clock,
-  Download
+  Download,
+  Sparkles
 } from 'lucide-react';
 import api from '../services/api';
 import { FeeDue } from '../types';
 import { CollectFeeModal } from './CollectFeeModal';
+import { ManipulateFeeModal } from './ManipulateFeeModal';
 
 export const FeesPage: React.FC = () => {
   const [dues, setDues] = useState<FeeDue[]>([]);
@@ -26,6 +28,9 @@ export const FeesPage: React.FC = () => {
 
   // Collect Fee Modal state
   const [selectedFeeDue, setSelectedFeeDue] = useState<FeeDue | null>(null);
+  // Smart Mode Manipulation Modal state
+  const [manipulateDue, setManipulateDue] = useState<FeeDue | null>(null);
+  const [smartModeEnabled, setSmartModeEnabled] = useState(false);
 
   const fetchDues = async () => {
     try {
@@ -36,9 +41,16 @@ export const FeesPage: React.FC = () => {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (serviceFilter !== 'all') params.serviceType = serviceFilter;
 
-      const res = await api.get('/fees', { params });
-      if (res.data.success) {
-        setDues(res.data.data);
+      const [feeRes, settingsRes] = await Promise.all([
+        api.get('/fees', { params }),
+        api.get('/settings').catch(() => ({ data: { data: {} } }))
+      ]);
+
+      if (feeRes.data.success) {
+        setDues(feeRes.data.data);
+      }
+      if (settingsRes?.data?.data?.smartModeEnabled !== undefined) {
+        setSmartModeEnabled(settingsRes.data.data.smartModeEnabled);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch coaching fees.');
@@ -272,6 +284,17 @@ export const FeesPage: React.FC = () => {
                               <Download className="w-3.5 h-3.5" />
                             </button>
                           )}
+                          {smartModeEnabled && (
+                            <button
+                              type="button"
+                              onClick={() => setManipulateDue(due)}
+                              className="px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10px] font-bold inline-flex items-center gap-1 border border-blue-300"
+                              title="Smart Mode: Manipulate or override this fee due"
+                            >
+                              <Sparkles className="w-3 h-3 text-blue-600" />
+                              Edit Due
+                            </button>
+                          )}
                           {!isPaid ? (
                             <button
                               onClick={() => setSelectedFeeDue(due)}
@@ -302,6 +325,16 @@ export const FeesPage: React.FC = () => {
         onClose={() => setSelectedFeeDue(null)}
         onSuccess={() => {
           setSelectedFeeDue(null);
+          fetchDues();
+        }}
+      />
+
+      {/* Smart Mode Fee Manipulation Modal */}
+      <ManipulateFeeModal
+        feeDue={manipulateDue}
+        onClose={() => setManipulateDue(null)}
+        onSuccess={() => {
+          setManipulateDue(null);
           fetchDues();
         }}
       />

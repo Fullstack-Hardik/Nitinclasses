@@ -250,19 +250,25 @@ const updateStudent = async (req, res) => {
       dateOfBirth,
       mobileNumber,
       address,
+      studentJoiningDate,
       membershipType,
       coachingMonthlyFee,
+      coachingJoiningDate,
       coachingStatus,
       libraryType,
       libraryMonthlyFee,
+      libraryJoiningDate,
       seatNumber,
-      libraryStatus
+      libraryStatus,
+      advanceFeeBalance
     } = req.body;
 
     if (fullName) student.fullName = fullName.trim();
     if (dateOfBirth) student.dateOfBirth = new Date(dateOfBirth);
     if (mobileNumber) student.mobileNumber = mobileNumber.trim();
     if (address) student.address = address.trim();
+    if (studentJoiningDate) student.studentJoiningDate = new Date(studentJoiningDate);
+    if (advanceFeeBalance !== undefined) student.advanceFeeBalance = Number(advanceFeeBalance);
 
     if (membershipType) {
       student.membershipType = membershipType;
@@ -271,12 +277,29 @@ const updateStudent = async (req, res) => {
 
       student.coaching.hasMembership = hasCoaching;
       student.library.hasMembership = hasLibrary;
+
+      // If library was removed, free up assigned seat automatically
+      if (!hasLibrary && student.library.seatNumber) {
+        const oldSeat = await Seat.findOne({
+          libraryType: student.library.libraryType,
+          seatNumber: student.library.seatNumber
+        });
+        if (oldSeat && oldSeat.assignedStudent?.toString() === student._id.toString()) {
+          oldSeat.status = 'available';
+          oldSeat.assignedStudent = null;
+          oldSeat.assignedAt = null;
+          await oldSeat.save();
+        }
+        student.library.seatNumber = null;
+      }
     }
 
     if (coachingMonthlyFee !== undefined) student.coaching.monthlyFee = Number(coachingMonthlyFee);
+    if (coachingJoiningDate) student.coaching.joiningDate = new Date(coachingJoiningDate);
     if (coachingStatus) student.coaching.status = coachingStatus;
 
     if (libraryMonthlyFee !== undefined) student.library.monthlyFee = Number(libraryMonthlyFee);
+    if (libraryJoiningDate) student.library.joiningDate = new Date(libraryJoiningDate);
     if (libraryStatus) student.library.status = libraryStatus;
     if (libraryType) student.library.libraryType = libraryType;
 

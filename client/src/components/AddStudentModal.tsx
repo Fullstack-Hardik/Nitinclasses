@@ -169,14 +169,25 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Student Joining Date *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Admission / Registration Date *
+                </label>
                 <input
                   type="date"
                   required
                   value={studentJoiningDate}
-                  onChange={(e) => setStudentJoiningDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setStudentJoiningDate(newDate);
+                    // Pre-fill coaching and library joining dates by default
+                    setCoachingJoiningDate(newDate);
+                    setLibraryJoiningDate(newDate);
+                  }}
                   className="w-full neu-input px-3.5 py-2.5 text-sm"
                 />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Overall admission date (coaching/library can have distinct joining dates below)
+                </span>
               </div>
 
               <div className="sm:col-span-2">

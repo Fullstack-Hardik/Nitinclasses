@@ -2,21 +2,29 @@ const Admin = require('../models/Admin');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-// Seed admin if not present
+// Seed or auto-sync admin credentials strictly from .env
 const seedDefaultAdmin = async () => {
-  const email = (process.env.ADMIN_EMAIL || 'admin@nitinsirclasses.com').toLowerCase();
-  const password = process.env.ADMIN_PASSWORD || 'Admin@12345';
+  const envEmail = (process.env.ADMIN_EMAIL || 'nitinsirclasses@gmail.com').toLowerCase();
+  const envPassword = process.env.ADMIN_PASSWORD || 'nitin@2026v1';
 
-  const existingAdmin = await Admin.findOne({ email });
-  if (!existingAdmin) {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+  let admin = await Admin.findOne();
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(envPassword, salt);
+
+  if (!admin) {
     await Admin.create({
-      email,
+      email: envEmail,
       password: hashedPassword,
       name: 'Nitin Sir'
     });
-    console.log(`[Admin] Initialized default admin: ${email}`);
+    console.log(`[Admin] Initialized admin from .env: ${envEmail}`);
+  } else {
+    // Keep credentials synchronized with .env
+    admin.email = envEmail;
+    admin.password = hashedPassword;
+    admin.name = 'Nitin Sir';
+    await admin.save();
+    console.log(`[Admin] Synced admin credentials from .env: ${envEmail}`);
   }
 };
 
@@ -37,7 +45,15 @@ const login = async (req, res) => {
       });
     }
 
-    const admin = await Admin.findOne({ email: email.toLowerCase() });
+    const envEmail = (process.env.ADMIN_EMAIL || 'nitinsirclasses@gmail.com').toLowerCase();
+    const envPassword = process.env.ADMIN_PASSWORD || 'nitin@2026v1';
+
+    let admin = await Admin.findOne({ email: email.toLowerCase() });
+    if (!admin && email.toLowerCase() === envEmail) {
+      await seedDefaultAdmin();
+      admin = await Admin.findOne({ email: envEmail });
+    }
+
     if (!admin) {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
@@ -51,8 +67,11 @@ const login = async (req, res) => {
       });
     }
 
-    const isMatch = await admin.comparePassword(password);
-    if (!isMatch) {
+    // Authenticate: check direct match against current .env or bcrypt hash
+    const isDirectMatch = (email.toLowerCase() === envEmail && password === envPassword);
+    const isHashMatch = await admin.comparePassword(password);
+
+    if (!isDirectMatch && !isHashMatch) {
       await admin.handleFailedLogin();
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
@@ -93,36 +112,8 @@ const getMe = async (req, res) => {
   });
 };
 
-const updatePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Both current and new password are required' });
-    }
-
-    const admin = await Admin.findById(req.admin._id);
-    const isMatch = await admin.comparePassword(currentPassword);
-    if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    admin.password = await bcrypt.hash(newPassword, salt);
-    await admin.save();
-
-    return res.json({ success: true, message: 'Password updated successfully' });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 module.exports = {
   seedDefaultAdmin,
   login,
-  getMe,
-  updatePassword
+  getMe
 };

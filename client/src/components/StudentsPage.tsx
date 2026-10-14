@@ -5,6 +5,7 @@ import {
   GraduationCap, 
   BookOpen, 
   Eye, 
+  Edit3,
   Calendar,
   AlertCircle,
   Download,
@@ -15,6 +16,7 @@ import { Student } from '../types';
 import { AddStudentModal } from './AddStudentModal';
 import { StudentProfileModal } from './StudentProfileModal';
 import { DirectCollectFeeModal } from './DirectCollectFeeModal';
+import { EditStudentModal } from './EditStudentModal';
 
 export const StudentsPage: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -27,6 +29,7 @@ export const StudentsPage: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [feeStudent, setFeeStudent] = useState<Student | null>(null);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
   const fetchStudents = async () => {
     try {
@@ -214,6 +217,14 @@ export const StudentsPage: React.FC = () => {
                           Add Fee
                         </button>
                         <button
+                          onClick={() => setEditingStudent(student)}
+                          className="neu-button px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 inline-flex items-center gap-1"
+                          title="Edit student personal info, membership, fee rates or joining dates"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          Edit
+                        </button>
+                        <button
                           onClick={() => setSelectedStudentId(student._id)}
                           className="neu-button px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:text-slate-900 inline-flex items-center gap-1"
                         >
@@ -239,6 +250,15 @@ export const StudentsPage: React.FC = () => {
         }}
       />
 
+      {/* Edit Student & Membership Modal */}
+      <EditStudentModal
+        student={editingStudent}
+        onClose={() => setEditingStudent(null)}
+        onSuccess={() => {
+          fetchStudents();
+        }}
+      />
+
       {/* Add Student Modal */}
       <AddStudentModal
         isOpen={isAddOpen}
@@ -255,6 +275,7 @@ export const StudentsPage: React.FC = () => {
           fetchStudents();
         }}
         onRefreshList={() => fetchStudents()}
+        onEdit={(student) => setEditingStudent(student)}
       />
     </div>
   );

@@ -384,11 +384,55 @@ const downloadStudentFullStatement = async (req, res) => {
   }
 };
 
+// PUT /api/fees/due/:id/manipulate (Smart Mode Fee Manipulation)
+const manipulateFeeDue = async (req, res) => {
+  try {
+    const settings = await Settings.findOne();
+    if (!settings?.smartModeEnabled) {
+      return res.status(403).json({
+        success: false,
+        message: 'Smart Mode is disabled. Enable it from Settings to adjust or manipulate fee dues.'
+      });
+    }
+
+    const { amount, paidAmount, remainingAmount, status, notes } = req.body;
+    const feeDue = await FeeDue.findById(req.params.id).populate('student');
+    if (!feeDue) {
+      return res.status(404).json({ success: false, message: 'Fee due record not found.' });
+    }
+
+    if (amount !== undefined) feeDue.amount = Math.max(0, Number(amount));
+    if (paidAmount !== undefined) feeDue.paidAmount = Math.max(0, Number(paidAmount));
+    if (remainingAmount !== undefined) {
+      feeDue.remainingAmount = Math.max(0, Number(remainingAmount));
+    } else if (amount !== undefined || paidAmount !== undefined) {
+      feeDue.remainingAmount = Math.max(0, feeDue.amount - feeDue.paidAmount);
+    }
+
+    if (status) {
+      feeDue.status = status;
+    } else {
+      feeDue.status = feeDue.remainingAmount === 0 ? 'paid' : (feeDue.paidAmount > 0 ? 'partially_paid' : 'due');
+    }
+
+    await feeDue.save();
+
+    return res.json({
+      success: true,
+      message: 'Fee record updated successfully via Smart Mode.',
+      data: feeDue
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getFeeDues,
   collectPayment,
   collectStudentFeeDirect,
   downloadReceipt,
   syncDues,
-  downloadStudentFullStatement
+  downloadStudentFullStatement,
+  manipulateFeeDue
 };

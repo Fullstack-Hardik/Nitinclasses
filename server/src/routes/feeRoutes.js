@@ -6,7 +6,8 @@ const {
   collectStudentFeeDirect,
   downloadReceipt,
   syncDues,
-  downloadStudentFullStatement
+  downloadStudentFullStatement,
+  manipulateFeeDue
 } = require('../controllers/feeController');
 const { protect } = require('../middleware/auth');
 
@@ -15,6 +16,7 @@ router.use(protect);
 router.get('/', getFeeDues);
 router.post('/collect', collectPayment);
 router.post('/collect-anytime', collectStudentFeeDirect);
+router.put('/due/:id/manipulate', manipulateFeeDue);
 router.get('/receipt/:paymentId/pdf', downloadReceipt);
 router.get('/student/:studentId/statement/pdf', downloadStudentFullStatement);
 router.post('/sync', syncDues);

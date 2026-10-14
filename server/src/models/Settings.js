@@ -32,6 +32,10 @@ const settingsSchema = new mongoose.Schema({
   girlsLibraryTotalSeats: {
     type: Number,
     default: 50
+  },
+  smartModeEnabled: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
