@@ -31,14 +31,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async (forceRefresh = false) => {
+  const [trendRange, setTrendRange] = useState<'6_months' | '12_months' | 'current_year'>('6_months');
+
+  const fetchStats = async (forceRefresh = false, range = trendRange) => {
     try {
       setLoading(true);
       setError(null);
       if (forceRefresh) {
         invalidateClientCache('dashboard');
       }
-      const res = await cachedGet<any>('/dashboard/stats');
+      const res = await cachedGet<any>('/dashboard/stats', {
+        params: { trendRange: range }
+      });
       if (res.data.success) {
         setStats(res.data.data);
       }
@@ -50,8 +54,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   };
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    fetchStats(false, trendRange);
+  }, [trendRange]);
 
   if (loading) {
     return (
@@ -235,37 +239,114 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {/* 1. Monthly Revenue Analytics Bar Chart */}
         <div className="neu-card p-6 lg:col-span-2 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-200 gap-3">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  6-Month Revenue & Fee Collection Trend
+                  Monthly Revenue & Fee Collection Trend
                 </h3>
               </div>
-              <span className="text-[11px] text-slate-400 font-mono">Live DB Analytics</span>
+
+              {/* Chart Filter Pills */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-xl self-start sm:self-auto">
+                {[
+                  { id: '6_months', label: 'Last 6 Months' },
+                  { id: '12_months', label: '12 Months' },
+                  { id: 'current_year', label: 'Current Year' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setTrendRange(tab.id as any)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                      trendRange === tab.id
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 pt-3 text-xs">
+              <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+                Coaching Fees
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-600" />
+                Library Fees
+              </span>
+              <span className="text-[11px] text-slate-400 ml-auto font-mono">
+                Max in period: ₹{maxTrend.toLocaleString('en-IN')}
+              </span>
             </div>
 
             {monthlyTrend.length === 0 ? (
               <div className="py-16 text-center text-xs text-slate-400">
-                No historical payment data recorded yet.
+                No payment data for selected time range.
               </div>
             ) : (
-              <div className="pt-6">
-                <div className="h-44 flex items-end justify-between gap-3 px-2">
+              <div className="pt-4">
+                <div className="h-48 flex items-end justify-between gap-2.5 px-1">
                   {monthlyTrend.map((m, idx) => {
-                    const heightPct = Math.max(12, Math.round((m.total / maxTrend) * 100));
+                    const total = m.total || 0;
+                    const coaching = m.coaching || 0;
+                    const library = m.library || 0;
+
+                    // Calculate height percentages
+                    const heightPct = total > 0 ? Math.max(10, Math.round((total / maxTrend) * 100)) : 4;
+                    const coachingPct = total > 0 ? Math.round((coaching / total) * 100) : 0;
+                    const libraryPct = total > 0 ? Math.round((library / total) * 100) : 0;
                     const monthLabel = monthShortNames[m._id.month - 1] || `${m._id.month}`;
+
                     return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                        <span className="text-[10px] font-bold text-emerald-700 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                          ₹{m.total.toLocaleString('en-IN')}
-                        </span>
-                        <div className="w-full bg-slate-100 rounded-xl h-36 flex items-end p-1 overflow-hidden">
-                          <div 
-                            className="w-full bg-gradient-to-t from-emerald-600 to-teal-500 rounded-lg transition-all duration-700 group-hover:from-emerald-500 group-hover:to-teal-400 shadow-sm"
-                            style={{ height: `${heightPct}%` }}
-                          />
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+                        {/* Hover Tooltip */}
+                        <div className="absolute -top-12 z-20 opacity-0 group-hover:opacity-100 transition pointer-events-none bg-slate-900 text-white text-[10px] font-mono p-1.5 rounded-lg shadow-xl whitespace-nowrap">
+                          <p className="font-bold text-white">₹{total.toLocaleString('en-IN')}</p>
+                          <p className="text-indigo-300">C: ₹{coaching.toLocaleString('en-IN')}</p>
+                          <p className="text-violet-300">L: ₹{library.toLocaleString('en-IN')}</p>
                         </div>
+
+                        {/* Top total label */}
+                        <span className="text-[10px] font-bold font-mono transition text-center whitespace-nowrap ${
+                          total > 0 ? 'text-slate-800' : 'text-slate-300'
+                        }">
+                          {total > 0 ? `₹${total}` : '₹0'}
+                        </span>
+
+                        {/* Bar Track Container */}
+                        <div className="w-full bg-slate-100 rounded-xl h-36 flex items-end p-1 overflow-hidden border border-slate-200/50">
+                          {total > 0 ? (
+                            <div 
+                              className="w-full rounded-lg transition-all duration-700 overflow-hidden flex flex-col justify-end shadow-xs"
+                              style={{ height: `${heightPct}%` }}
+                            >
+                              {libraryPct > 0 && (
+                                <div 
+                                  className="w-full bg-violet-600 transition-all" 
+                                  style={{ height: `${libraryPct}%` }} 
+                                  title={`Library: ₹${library}`}
+                                />
+                              )}
+                              {coachingPct > 0 && (
+                                <div 
+                                  className="w-full bg-indigo-600 transition-all" 
+                                  style={{ height: `${coachingPct}%` }} 
+                                  title={`Coaching: ₹${coaching}`}
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <div className="w-full h-1 bg-slate-300/60 rounded-full" />
+                          )}
+                        </div>
+
+                        {/* Month Axis Label */}
                         <span className="text-[11px] font-bold text-slate-600 font-mono">
                           {monthLabel} '{String(m._id.year).slice(-2)}
                         </span>
@@ -278,7 +359,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
 
           <div className="pt-4 mt-2 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
-            <span>Aggregated verified receipts</span>
+            <span>Aggregated verified receipts from real MongoDB ledger</span>
             <button 
               onClick={() => onNavigate?.('fees')}
               className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"

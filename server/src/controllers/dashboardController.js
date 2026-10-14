@@ -7,7 +7,8 @@ const cache = require('../services/cacheService');
 // GET /api/dashboard/stats
 const getDashboardStats = async (req, res) => {
   try {
-    const cacheKey = 'dashboard_stats';
+    const trendRange = req.query.trendRange || '6_months';
+    const cacheKey = `dashboard_stats_${trendRange}`;
     const cachedData = cache.get(cacheKey);
     if (cachedData) {
       return res.json({ success: true, data: cachedData, cached: true });
@@ -105,21 +106,57 @@ const getDashboardStats = async (req, res) => {
     const coachingCollection = breakdown.find(b => b._id === 'coaching')?.totalAmount || 0;
     const libraryCollection = breakdown.find(b => b._id === 'library')?.totalAmount || 0;
 
-    // Recent 6 Months Trend
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    const monthlyTrend = await Payment.aggregate([
-      { $match: { paymentDate: { $gte: sixMonthsAgo } } },
+    // Trend range filter: '6_months' (default) | '12_months' | 'current_year'
+    const trendRange = req.query.trendRange || '6_months';
+    let monthCount = 6;
+    if (trendRange === '12_months') monthCount = 12;
+    else if (trendRange === 'current_year') monthCount = now.getMonth() + 1;
+
+    // Generate continuous sequence of months up to current month
+    const trendMonthsList = [];
+    for (let i = monthCount - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      trendMonthsList.push({
+        year: d.getFullYear(),
+        month: d.getMonth() + 1, // 1-indexed
+        coaching: 0,
+        library: 0,
+        total: 0
+      });
+    }
+
+    const startDate = new Date(trendMonthsList[0].year, trendMonthsList[0].month - 1, 1);
+
+    const paymentAggregates = await Payment.aggregate([
+      { $match: { paymentDate: { $gte: startDate } } },
       {
         $group: {
           _id: {
             year: { $year: '$paymentDate' },
-            month: { $month: '$paymentDate' }
+            month: { $month: '$paymentDate' },
+            service: '$serviceType'
           },
           total: { $sum: '$amountPaid' }
         }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
+      }
     ]);
+
+    // Map payments into the trend months list
+    paymentAggregates.forEach(p => {
+      const entry = trendMonthsList.find(m => m.year === p._id.year && m.month === p._id.month);
+      if (entry) {
+        if (p._id.service === 'coaching') entry.coaching += p.total;
+        else if (p._id.service === 'library') entry.library += p.total;
+        entry.total += p.total;
+      }
+    });
+
+    const monthlyTrend = trendMonthsList.map(m => ({
+      _id: { year: m.year, month: m.month },
+      coaching: m.coaching,
+      library: m.library,
+      total: m.total
+    }));
 
     const responseData = {
       summary: {

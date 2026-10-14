@@ -99,6 +99,8 @@ export interface DashboardStats {
   monthlyTrend: Array<{
     _id: { year: number; month: number };
     total: number;
+    coaching?: number;
+    library?: number;
   }>;
 }
 
