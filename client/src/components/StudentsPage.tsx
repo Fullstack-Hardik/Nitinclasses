@@ -169,11 +169,16 @@ export const StudentsPage: React.FC = () => {
                     <td className="py-3 px-4 font-bold text-slate-900">{student.studentId}</td>
                     <td className="py-3 px-4 font-semibold text-slate-800">
                       <div>{student.fullName}</div>
+                      {student.fatherName && (
+                        <div className="text-[10px] text-slate-500 font-normal">
+                          S/D of: {student.fatherName}
+                        </div>
+                      )}
                       <div className="text-[10px] text-slate-400 font-normal">
                         Joined: {new Date(student.studentJoiningDate).toLocaleDateString('en-GB')}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-600">{student.mobileNumber}</td>
+                    <td className="py-3 px-4 text-slate-600">{student.mobileNumber || '—'}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {student.coaching?.hasMembership && (

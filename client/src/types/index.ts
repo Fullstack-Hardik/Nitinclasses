@@ -2,9 +2,10 @@ export interface Student {
   _id: string;
   studentId: string;
   fullName: string;
-  dateOfBirth: string;
-  mobileNumber: string;
-  address: string;
+  fatherName?: string;
+  dateOfBirth?: string;
+  mobileNumber?: string;
+  address?: string;
   studentJoiningDate: string;
   membershipType: 'coaching_only' | 'library_only' | 'coaching_and_library';
   coaching?: {

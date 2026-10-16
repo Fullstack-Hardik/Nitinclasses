@@ -29,6 +29,8 @@ const getFeeDues = async (req, res) => {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
 
     const now = new Date();
 
@@ -61,6 +63,7 @@ const getFeeDues = async (req, res) => {
     } else if (status === 'pending') {
       query.remainingAmount = { $gt: 0 };
       query.status = { $in: ['due', 'partially_paid'] };
+      query.dueDate = { $lte: endOfToday };
     } else if (status === 'overdue') {
       query.remainingAmount = { $gt: 0 };
       query.dueDate = { $lt: today };
@@ -70,6 +73,11 @@ const getFeeDues = async (req, res) => {
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       const nextMonthFirstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       query.dueDate = { $gte: firstDay, $lt: nextMonthFirstDay };
+    } else {
+      // For default 'all', only show dues up to today unless specifically searching
+      if (!req.query.year && !req.query.startDate && !status) {
+        query.dueDate = { $lte: endOfToday };
+      }
     }
 
     // Month & Year Filter (e.g. month=9, year=2026)

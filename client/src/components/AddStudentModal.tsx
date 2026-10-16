@@ -11,7 +11,7 @@ interface AddStudentModalProps {
 export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClose, onSuccess }) => {
   // Personal Info
   const [fullName, setFullName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [fatherName, setFatherName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [address, setAddress] = useState('');
   const [studentJoiningDate, setStudentJoiningDate] = useState(new Date().toISOString().split('T')[0]);
@@ -43,14 +43,14 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
     e.preventDefault();
     setError(null);
 
-    // Basic Validation
-    if (!fullName.trim() || !dateOfBirth || !mobileNumber.trim() || !address.trim()) {
-      setError('Please fill in all personal information fields.');
+    // Basic Validation - only full name is mandatory
+    if (!fullName.trim()) {
+      setError('Please enter the student\'s full name.');
       return;
     }
 
-    if (!/^\d{10}$/.test(mobileNumber.trim())) {
-      setError('Please enter a valid 10-digit mobile number.');
+    if (mobileNumber.trim() && !/^\d{10}$/.test(mobileNumber.trim())) {
+      setError('Please enter a valid 10-digit mobile number, or leave it blank.');
       return;
     }
 
@@ -67,10 +67,10 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
     try {
       setLoading(true);
       const payload: any = {
-        fullName,
-        dateOfBirth,
-        mobileNumber,
-        address,
+        fullName: fullName.trim(),
+        fatherName: fatherName.trim(),
+        mobileNumber: mobileNumber.trim(),
+        address: address.trim(),
         studentJoiningDate,
         membershipType,
       };
@@ -145,21 +145,20 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Date of Birth *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Father's Name (Optional)</label>
                 <input
-                  type="date"
-                  required
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  type="text"
+                  value={fatherName}
+                  onChange={(e) => setFatherName(e.target.value)}
+                  placeholder="e.g. Ramesh Sharma"
                   className="w-full neu-input px-3.5 py-2.5 text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mobile Number *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mobile Number (Optional)</label>
                 <input
                   type="tel"
-                  required
                   maxLength={10}
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value)}
@@ -191,10 +190,9 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Complete Address *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Complete Address (Optional)</label>
                 <textarea
                   rows={2}
-                  required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Residential address..."

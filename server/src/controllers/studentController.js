@@ -28,6 +28,7 @@ const getStudents = async (req, res) => {
       const searchRegex = new RegExp(search.trim(), 'i');
       query.$or = [
         { fullName: searchRegex },
+        { fatherName: searchRegex },
         { mobileNumber: searchRegex },
         { studentId: searchRegex }
       ];
@@ -110,6 +111,7 @@ const createStudent = async (req, res) => {
   try {
     const {
       fullName,
+      fatherName,
       dateOfBirth,
       mobileNumber,
       address,
@@ -125,37 +127,39 @@ const createStudent = async (req, res) => {
       libraryStatus
     } = req.body;
 
-    // Validation
-    if (!fullName || !dateOfBirth || !mobileNumber || !address || !membershipType) {
-      return res.status(400).json({ success: false, message: 'All personal fields and membership selection are required.' });
+    // Validation - only fullName and membershipType are mandatory
+    if (!fullName || !fullName.trim() || !membershipType) {
+      return res.status(400).json({ success: false, message: 'Full name and membership selection are required.' });
     }
 
     if (!['coaching_only', 'library_only', 'coaching_and_library'].includes(membershipType)) {
       return res.status(400).json({ success: false, message: 'Invalid membership type selected.' });
     }
 
-    // Mobile check
-    const cleanMobile = mobileNumber.trim();
-    if (!/^\d{10}$/.test(cleanMobile)) {
-      return res.status(400).json({ success: false, message: 'Please provide a valid 10-digit mobile number.' });
+    // Mobile check - optional
+    const cleanMobile = mobileNumber ? mobileNumber.trim() : '';
+    if (cleanMobile && !/^\d{10}$/.test(cleanMobile)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid 10-digit mobile number, or leave it blank.' });
     }
 
-    // Duplicate detection: Prevent creating duplicate active students with identical mobile number
-    const existingStudent = await Student.findOne({
-      mobileNumber: cleanMobile,
-      isArchived: false
-    });
-
-    if (existingStudent) {
-      return res.status(409).json({
-        success: false,
-        message: `A student named "${existingStudent.fullName}" is already registered with mobile number ${cleanMobile} (Student ID: ${existingStudent.studentId}). Please manage the existing student record instead of creating a duplicate.`,
-        existingStudent: {
-          id: existingStudent._id,
-          studentId: existingStudent.studentId,
-          fullName: existingStudent.fullName
-        }
+    // Duplicate detection: Only if mobile number is provided
+    if (cleanMobile) {
+      const existingStudent = await Student.findOne({
+        mobileNumber: cleanMobile,
+        isArchived: false
       });
+
+      if (existingStudent) {
+        return res.status(409).json({
+          success: false,
+          message: `A student named "${existingStudent.fullName}" is already registered with mobile number ${cleanMobile} (Student ID: ${existingStudent.studentId}). Please manage the existing student record instead of creating a duplicate.`,
+          existingStudent: {
+            id: existingStudent._id,
+            studentId: existingStudent.studentId,
+            fullName: existingStudent.fullName
+          }
+        });
+      }
     }
 
     const studentId = await generateStudentId();
@@ -191,9 +195,10 @@ const createStudent = async (req, res) => {
     const student = await Student.create({
       studentId,
       fullName: fullName.trim(),
-      dateOfBirth: new Date(dateOfBirth),
-      mobileNumber: mobileNumber.trim(),
-      address: address.trim(),
+      fatherName: fatherName ? fatherName.trim() : '',
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+      mobileNumber: cleanMobile,
+      address: address ? address.trim() : '',
       studentJoiningDate: studentJoiningDate ? new Date(studentJoiningDate) : new Date(),
       membershipType,
       coaching: {
@@ -251,6 +256,7 @@ const updateStudent = async (req, res) => {
 
     const {
       fullName,
+      fatherName,
       dateOfBirth,
       mobileNumber,
       address,
@@ -268,9 +274,10 @@ const updateStudent = async (req, res) => {
     } = req.body;
 
     if (fullName) student.fullName = fullName.trim();
-    if (dateOfBirth) student.dateOfBirth = new Date(dateOfBirth);
-    if (mobileNumber) student.mobileNumber = mobileNumber.trim();
-    if (address) student.address = address.trim();
+    if (fatherName !== undefined) student.fatherName = fatherName.trim();
+    if (dateOfBirth !== undefined) student.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+    if (mobileNumber !== undefined) student.mobileNumber = mobileNumber.trim();
+    if (address !== undefined) student.address = address.trim();
     if (studentJoiningDate) student.studentJoiningDate = new Date(studentJoiningDate);
     if (advanceFeeBalance !== undefined) student.advanceFeeBalance = Number(advanceFeeBalance);
 

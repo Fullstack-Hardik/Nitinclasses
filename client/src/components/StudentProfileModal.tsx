@@ -10,7 +10,8 @@ import {
   BookOpen,
   MapPin,
   Phone,
-  Receipt
+  Receipt,
+  UserCheck
 } from 'lucide-react';
 import api from '../services/api';
 import { Student, FeeDue, Payment } from '../types';
@@ -198,14 +199,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <p className="text-slate-400 font-medium mb-0.5">Mobile Number</p>
                 <p className="font-semibold text-slate-800 flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  {data.student.mobileNumber}
+                  {data.student.mobileNumber || 'N/A'}
                 </p>
               </div>
               <div>
-                <p className="text-slate-400 font-medium mb-0.5">Date of Birth</p>
+                <p className="text-slate-400 font-medium mb-0.5">Father's Name</p>
                 <p className="font-semibold text-slate-800 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  {new Date(data.student.dateOfBirth).toLocaleDateString('en-GB')}
+                  <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+                  {data.student.fatherName || 'N/A'}
                 </p>
               </div>
               <div>

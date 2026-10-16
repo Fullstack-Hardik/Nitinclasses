@@ -230,6 +230,48 @@ export const LibraryPage: React.FC = () => {
     }
   };
 
+  const handleBulkAdd = async (count: number) => {
+    if (count < 1) return;
+    try {
+      setActionLoading(true);
+      const res = await api.post('/library/bulk-add', {
+        libraryType,
+        count
+      });
+      if (res.data.success) {
+        setSeats(res.data.seats);
+        setStats(res.data.stats);
+        setNewCapacity(res.data.stats.totalSeats.toString());
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to add seats.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkRemove = async (count: number) => {
+    if (count < 1) return;
+    if (!confirm(`Are you sure you want to remove ${count} unoccupied seat(s) from ${libraryType} library?`)) return;
+    try {
+      setActionLoading(true);
+      const res = await api.post('/library/bulk-remove', {
+        libraryType,
+        count
+      });
+      if (res.data.success) {
+        setSelectedSeat(null);
+        setSeats(res.data.seats);
+        setStats(res.data.stats);
+        setNewCapacity(res.data.stats.totalSeats.toString());
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to remove seats.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleUpdateCapacity = async (e: React.FormEvent) => {
     e.preventDefault();
     const count = Number(newCapacity);
@@ -262,7 +304,7 @@ export const LibraryPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Library Management</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Interactive seat maps, live assignment & custom seat controls</p>
+          <p className="text-sm text-slate-500 mt-0.5">Interactive seat maps, live assignment & dynamic seat scaling</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -294,18 +336,51 @@ export const LibraryPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Add Seat button */}
-          <button
-            onClick={() => {
-              const maxSeat = seats.reduce((max, s) => Math.max(max, s.seatNumber), 0);
-              setCustomSeatNumber((maxSeat + 1).toString());
-              setShowAddSeatModal(true);
-            }}
-            className="neu-button-primary px-3.5 py-2 text-xs font-bold flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Seat
-          </button>
+          {/* Quick Seat Add / Remove Pills */}
+          <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl">
+            <span className="text-[11px] font-bold text-slate-500 px-1.5">Seats:</span>
+            <button
+              onClick={() => handleBulkAdd(1)}
+              disabled={actionLoading}
+              className="px-2 py-1 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
+              title="Add 1 seat"
+            >
+              +1
+            </button>
+            <button
+              onClick={() => handleBulkAdd(5)}
+              disabled={actionLoading}
+              className="px-2 py-1 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
+              title="Add 5 seats"
+            >
+              +5
+            </button>
+            <button
+              onClick={() => handleBulkAdd(10)}
+              disabled={actionLoading}
+              className="px-2 py-1 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition"
+              title="Add 10 seats"
+            >
+              +10
+            </button>
+            <span className="text-slate-300">|</span>
+            <button
+              onClick={() => handleBulkRemove(1)}
+              disabled={actionLoading || stats.availableSeats < 1}
+              className="px-2 py-1 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 shadow-xs transition disabled:opacity-40"
+              title="Remove 1 unoccupied seat"
+            >
+              -1
+            </button>
+            <button
+              onClick={() => handleBulkRemove(5)}
+              disabled={actionLoading || stats.availableSeats < 5}
+              className="px-2 py-1 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 shadow-xs transition disabled:opacity-40"
+              title="Remove 5 unoccupied seats"
+            >
+              -5
+            </button>
+          </div>
 
           {/* Set Capacity button */}
           <button
@@ -747,40 +822,111 @@ export const LibraryPage: React.FC = () => {
       {/* Configure Capacity Modal */}
       {showCapacityModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="neu-card w-full max-w-sm p-6 space-y-4">
-            <h3 className="text-base font-bold text-slate-900">
-              Configure {libraryType === 'boys' ? "Boys'" : "Girls'"} Library Capacity
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Adjust total seat count. Existing allocations will be maintained.
-            </p>
-            <form onSubmit={handleUpdateCapacity} className="space-y-4">
+          <div className="neu-card w-full max-w-md p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Total Seats Count</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={newCapacity}
-                  onChange={(e) => setNewCapacity(e.target.value)}
-                  className="w-full neu-input px-3.5 py-2 text-sm font-bold"
-                />
+                <h3 className="text-base font-bold text-slate-900">
+                  Manage Seats & Capacity ({libraryType === 'boys' ? "Boys'" : "Girls'"} Hall)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Currently {stats.totalSeats} seats total ({stats.availableSeats} available)
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCapacityModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Bulk Adjust Actions */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 space-y-2.5">
+              <span className="text-xs font-bold text-slate-700 block">Quick Adjust Quantity:</span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => {
+                    handleBulkAdd(5);
+                    setShowCapacityModal(false);
+                  }}
+                  className="py-2 px-3 rounded-lg bg-emerald-100 text-emerald-800 font-bold hover:bg-emerald-200 transition"
+                >
+                  + Add 5 Seats
+                </button>
+                <button
+                  type="button"
+                  disabled={actionLoading || stats.availableSeats < 5}
+                  onClick={() => {
+                    handleBulkRemove(5);
+                    setShowCapacityModal(false);
+                  }}
+                  className="py-2 px-3 rounded-lg bg-rose-100 text-rose-800 font-bold hover:bg-rose-200 transition disabled:opacity-40"
+                >
+                  - Remove 5 Seats
+                </button>
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => {
+                    handleBulkAdd(10);
+                    setShowCapacityModal(false);
+                  }}
+                  className="py-2 px-3 rounded-lg bg-emerald-100 text-emerald-800 font-bold hover:bg-emerald-200 transition"
+                >
+                  + Add 10 Seats
+                </button>
+                <button
+                  type="button"
+                  disabled={actionLoading || stats.availableSeats < 10}
+                  onClick={() => {
+                    handleBulkRemove(10);
+                    setShowCapacityModal(false);
+                  }}
+                  className="py-2 px-3 rounded-lg bg-rose-100 text-rose-800 font-bold hover:bg-rose-200 transition disabled:opacity-40"
+                >
+                  - Remove 10 Seats
+                </button>
+              </div>
+            </div>
+
+            {/* Set Exact Capacity Form */}
+            <form onSubmit={handleUpdateCapacity} className="space-y-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Or Set Exact Total Capacity:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={newCapacity}
+                    onChange={(e) => setNewCapacity(e.target.value)}
+                    placeholder="e.g. 50"
+                    className="flex-1 neu-input px-3.5 py-2 text-sm font-bold"
+                  />
+                  <button
+                    type="submit"
+                    disabled={capacityLoading}
+                    className="neu-button-primary px-5 py-2 text-xs font-bold"
+                  >
+                    {capacityLoading ? 'Saving...' : 'Set Capacity'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Automatically scales seat documents up or down and persists to database.
+                </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end pt-2 border-t border-slate-200/60">
                 <button
                   type="button"
                   onClick={() => setShowCapacityModal(false)}
                   className="neu-button px-4 py-2 text-xs font-semibold text-slate-600"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={capacityLoading}
-                  className="neu-button-primary px-5 py-2 text-xs font-bold"
-                >
-                  {capacityLoading ? 'Saving...' : 'Update Capacity'}
+                  Close
                 </button>
               </div>
             </form>

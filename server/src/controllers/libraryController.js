@@ -224,7 +224,7 @@ const configureCapacity = async (req, res) => {
     cache.invalidate('dashboard');
 
     const seats = await Seat.find({ libraryType }).sort({ seatNumber: 1 });
-    const totalSeats = seats.length;
+    const finalTotal = seats.length;
     const occupiedSeats = seats.filter(s => s.status === 'occupied').length;
     const blockedSeats = seats.filter(s => s.status === 'blocked').length;
     const availableSeats = seats.filter(s => s.status === 'available').length;
@@ -233,12 +233,133 @@ const configureCapacity = async (req, res) => {
       success: true,
       message: `${libraryType.toUpperCase()} library capacity updated to ${newCount} seats.`,
       stats: {
-        totalSeats,
+        totalSeats: finalTotal,
         occupiedSeats,
         availableSeats,
         blockedSeats,
-        occupancyRate: totalSeats > 0 ? Math.round((occupiedSeats / totalSeats) * 100) : 0
+        occupancyRate: finalTotal > 0 ? Math.round((occupiedSeats / finalTotal) * 100) : 0
       }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/library/bulk-add
+const bulkAddSeats = async (req, res) => {
+  try {
+    const { libraryType, count } = req.body;
+    const addCount = Number(count);
+    if (!libraryType || !['boys', 'girls'].includes(libraryType) || isNaN(addCount) || addCount < 1) {
+      return res.status(400).json({ success: false, message: 'Valid library type and count (minimum 1) are required.' });
+    }
+
+    const existingSeats = await Seat.find({ libraryType }).sort({ seatNumber: 1 });
+    const existingNumbers = new Set(existingSeats.map(s => s.seatNumber));
+    let nextNum = 1;
+
+    const toCreate = [];
+    for (let i = 0; i < addCount; i++) {
+      while (existingNumbers.has(nextNum)) {
+        nextNum++;
+      }
+      toCreate.push({
+        libraryType,
+        seatNumber: nextNum,
+        status: 'available',
+        assignedStudent: null
+      });
+      existingNumbers.add(nextNum);
+    }
+
+    await Seat.insertMany(toCreate);
+
+    const totalInDb = await Seat.countDocuments({ libraryType });
+    const settings = await Settings.findOne() || new Settings();
+    const capacityField = libraryType === 'boys' ? 'boysLibraryTotalSeats' : 'girlsLibraryTotalSeats';
+    if (totalInDb > (settings[capacityField] || 0)) {
+      settings[capacityField] = totalInDb;
+      await settings.save();
+    }
+
+    cache.invalidate('dashboard');
+
+    const seats = await Seat.find({ libraryType })
+      .populate('assignedStudent', 'fullName studentId mobileNumber library')
+      .sort({ seatNumber: 1 });
+    const finalTotal = seats.length;
+    const occupiedSeats = seats.filter(s => s.status === 'occupied').length;
+    const blockedSeats = seats.filter(s => s.status === 'blocked').length;
+    const availableSeats = seats.filter(s => s.status === 'available').length;
+
+    return res.status(201).json({
+      success: true,
+      message: `Added ${addCount} seats to ${libraryType} library.`,
+      stats: {
+        totalSeats: finalTotal,
+        occupiedSeats,
+        availableSeats,
+        blockedSeats,
+        occupancyRate: finalTotal > 0 ? Math.round((occupiedSeats / finalTotal) * 100) : 0
+      },
+      seats
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/library/bulk-remove
+const bulkRemoveSeats = async (req, res) => {
+  try {
+    const { libraryType, count } = req.body;
+    const removeCount = Number(count);
+    if (!libraryType || !['boys', 'girls'].includes(libraryType) || isNaN(removeCount) || removeCount < 1) {
+      return res.status(400).json({ success: false, message: 'Valid library type and count (minimum 1) are required.' });
+    }
+
+    // Find unoccupied seats in descending seatNumber order
+    const availableToRemove = await Seat.find({
+      libraryType,
+      status: { $ne: 'occupied' }
+    }).sort({ seatNumber: -1 }).limit(removeCount);
+
+    if (availableToRemove.length === 0) {
+      return res.status(400).json({ success: false, message: 'No available or unoccupied seats can be removed.' });
+    }
+
+    const idsToDelete = availableToRemove.map(s => s._id);
+    await Seat.deleteMany({ _id: { $in: idsToDelete } });
+
+    const totalRemaining = await Seat.countDocuments({ libraryType });
+    const settings = await Settings.findOne();
+    if (settings) {
+      const capacityField = libraryType === 'boys' ? 'boysLibraryTotalSeats' : 'girlsLibraryTotalSeats';
+      settings[capacityField] = totalRemaining;
+      await settings.save();
+    }
+
+    cache.invalidate('dashboard');
+
+    const seats = await Seat.find({ libraryType })
+      .populate('assignedStudent', 'fullName studentId mobileNumber library')
+      .sort({ seatNumber: 1 });
+    const finalTotal = seats.length;
+    const occupiedSeats = seats.filter(s => s.status === 'occupied').length;
+    const blockedSeats = seats.filter(s => s.status === 'blocked').length;
+    const availableSeats = seats.filter(s => s.status === 'available').length;
+
+    return res.json({
+      success: true,
+      message: `Removed ${availableToRemove.length} seats from ${libraryType} library.`,
+      stats: {
+        totalSeats: finalTotal,
+        occupiedSeats,
+        availableSeats,
+        blockedSeats,
+        occupancyRate: finalTotal > 0 ? Math.round((occupiedSeats / finalTotal) * 100) : 0
+      },
+      seats
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -373,5 +494,7 @@ module.exports = {
   configureCapacity,
   addSeat,
   deleteSeat,
+  bulkAddSeats,
+  bulkRemoveSeats,
   getEligibleStudents
 };

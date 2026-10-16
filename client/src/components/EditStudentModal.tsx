@@ -18,9 +18,7 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
 
   // Personal Info
   const [fullName, setFullName] = useState(student.fullName || '');
-  const [dateOfBirth, setDateOfBirth] = useState(
-    student.dateOfBirth ? new Date(student.dateOfBirth).toISOString().split('T')[0] : ''
-  );
+  const [fatherName, setFatherName] = useState(student.fatherName || '');
   const [mobileNumber, setMobileNumber] = useState(student.mobileNumber || '');
   const [address, setAddress] = useState(student.address || '');
   const [studentJoiningDate, setStudentJoiningDate] = useState(
@@ -79,8 +77,13 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
     e.preventDefault();
     setError(null);
 
-    if (!fullName.trim() || !mobileNumber.trim()) {
-      setError('Full name and mobile number are required.');
+    if (!fullName.trim()) {
+      setError('Full name is required.');
+      return;
+    }
+
+    if (mobileNumber.trim() && !/^\d{10}$/.test(mobileNumber.trim())) {
+      setError('Please provide a valid 10-digit mobile number, or leave it blank.');
       return;
     }
 
@@ -88,7 +91,7 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
       setLoading(true);
       const payload: any = {
         fullName: fullName.trim(),
-        dateOfBirth,
+        fatherName: fatherName.trim(),
         mobileNumber: mobileNumber.trim(),
         address: address.trim(),
         studentJoiningDate,
@@ -166,24 +169,24 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Date of Birth *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Father's Name (Optional)</label>
                 <input
-                  type="date"
-                  required
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  type="text"
+                  value={fatherName}
+                  onChange={(e) => setFatherName(e.target.value)}
+                  placeholder="e.g. Ramesh Sharma"
                   className="w-full neu-input px-3.5 py-2.5 text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mobile Number *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mobile Number (Optional)</label>
                 <input
                   type="tel"
-                  required
                   maxLength={10}
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value)}
+                  placeholder="10-digit number"
                   className="w-full neu-input px-3.5 py-2.5 text-sm"
                 />
               </div>
@@ -200,12 +203,12 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Address *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Address (Optional)</label>
                 <textarea
                   rows={2}
-                  required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Residential address..."
                   className="w-full neu-input px-3.5 py-2.5 text-sm"
                 />
               </div>

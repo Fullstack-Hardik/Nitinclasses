@@ -39,6 +39,7 @@ const getDashboardStats = async (req, res) => {
     // Collections calculation
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const tomorrow = new Date(startOfToday);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -67,11 +68,13 @@ const getDashboardStats = async (req, res) => {
     ]);
 
     // Outstanding and Overdue fees
+    // Outstanding includes only completed past cycles and today's due (never future incomplete cycles)
     const [outstandingDues] = await FeeDue.aggregate([
-      { $match: { remainingAmount: { $gt: 0 } } },
+      { $match: { remainingAmount: { $gt: 0 }, dueDate: { $lte: endOfToday } } },
       { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
     ]);
 
+    // Overdue includes only past cycles whose due date has strictly elapsed
     const [overdueDues] = await FeeDue.aggregate([
       { $match: { remainingAmount: { $gt: 0 }, dueDate: { $lt: startOfToday } } },
       { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
@@ -107,7 +110,6 @@ const getDashboardStats = async (req, res) => {
     const libraryCollection = breakdown.find(b => b._id === 'library')?.totalAmount || 0;
 
     // Trend range filter: '6_months' (default) | '12_months' | 'current_year'
-    const trendRange = req.query.trendRange || '6_months';
     let monthCount = 6;
     if (trendRange === '12_months') monthCount = 12;
     else if (trendRange === 'current_year') monthCount = now.getMonth() + 1;

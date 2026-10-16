@@ -56,22 +56,21 @@ async function generateDuesForStudent(student, serviceType) {
     }
     const nextAnniversary = getAnniversaryDate(nextYear, nextMonth, anniversaryDay);
 
-    // MATHEMATICAL RULE: Fee is only due AFTER 1 full month of service has elapsed (at nextAnniversary).
-    // If nextAnniversary is still in the future relative to today midnight,
-    // this month's cycle is currently in progress, so DO NOT add/charge fees for it yet!
-    if (nextAnniversary > todayMidnight) {
+    // If this cycle's anniversary date has not arrived yet, do NOT generate or show it yet!
+    // ("jo aane wali hai wo mat dikha, jis din hai us din dikha")
+    if (periodStart > todayMidnight) {
       break;
     }
 
     const periodEnd = new Date(nextAnniversary.getTime() - 24 * 60 * 60 * 1000);
 
-    // Format billing period string: e.g. "10 Jul 2026 - 09 Aug 2026"
+    // Format billing period string: e.g. "10 Oct 2026 - 09 Nov 2026"
     const startStr = periodStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const endStr = periodEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const billingPeriod = `${startStr} - ${endStr}`;
 
-    // Due date is when the 1-month cycle completes (nextAnniversary)
-    const dueDate = new Date(nextAnniversary);
+    // Due date is the anniversary date when the cycle begins
+    const dueDate = new Date(periodStart);
 
     // Check if this fee due already exists
     const existing = await FeeDue.findOne({
@@ -81,8 +80,9 @@ async function generateDuesForStudent(student, serviceType) {
     });
 
     if (!existing) {
-      // Determine initial status based on due date vs today
-      const isPastDue = dueDate < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Determine initial status based on due date vs today (IST start of today)
+      const startOfToday = new Date(nowYear, nowMonth, nowDay, 0, 0, 0, 0);
+      const isPastDue = dueDate < startOfToday;
       let initialStatus = isPastDue ? 'overdue' : 'due';
       let paidAmount = 0;
       let remainingAmount = feeAmount;
@@ -190,7 +190,7 @@ async function generateDuesForStudent(student, serviceType) {
           notes: 'Auto-settled from advance fee balance',
           paymentDate: new Date()
         });
-      } else if (existing.remainingAmount > 0 && existing.dueDate < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && existing.status === 'due') {
+      } else if (existing.remainingAmount > 0 && existing.dueDate < new Date(nowYear, nowMonth, nowDay, 0, 0, 0, 0) && existing.status !== 'overdue') {
         existing.status = 'overdue';
         await existing.save();
       }

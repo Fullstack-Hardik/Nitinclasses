@@ -8,6 +8,8 @@ const {
   configureCapacity,
   addSeat,
   deleteSeat,
+  bulkAddSeats,
+  bulkRemoveSeats,
   getEligibleStudents
 } = require('../controllers/libraryController');
 const { protect } = require('../middleware/auth');
@@ -21,6 +23,8 @@ router.post('/toggle-block', toggleBlockSeat);
 router.post('/configure-capacity', configureCapacity);
 router.post('/add-seat', addSeat);
 router.post('/delete-seat', deleteSeat);
+router.post('/bulk-add', bulkAddSeats);
+router.post('/bulk-remove', bulkRemoveSeats);
 router.get('/eligible-students', getEligibleStudents);
 
 module.exports = router;

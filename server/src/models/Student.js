@@ -15,20 +15,25 @@ const studentSchema = new mongoose.Schema({
     required: [true, 'Full name is required'],
     trim: true
   },
+  fatherName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   dateOfBirth: {
     type: Date,
-    required: [true, 'Date of birth is required']
+    default: null
   },
   mobileNumber: {
     type: String,
-    required: [true, 'Mobile number is required'],
     trim: true,
+    default: '',
     index: true
   },
   address: {
     type: String,
-    required: [true, 'Complete address is required'],
-    trim: true
+    trim: true,
+    default: ''
   },
   studentJoiningDate: {
     type: Date,
@@ -79,6 +84,6 @@ const studentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Virtual to populate active dues or seats if needed
-studentSchema.index({ fullName: 'text', mobileNumber: 'text', studentId: 'text' });
+studentSchema.index({ fullName: 'text', fatherName: 'text', mobileNumber: 'text', studentId: 'text' });
 
 module.exports = mongoose.model('Student', studentSchema);
