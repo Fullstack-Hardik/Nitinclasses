@@ -19,10 +19,13 @@ const generateReceiptNumber = async () => {
 // GET /api/fees (Coaching / Library fee dues)
 const getFeeDues = async (req, res) => {
   try {
-    const { serviceType, status, search } = req.query;
+    const { serviceType, status, search, studentId } = req.query;
 
     // Optional background sync check
     let query = {};
+    if (studentId) {
+      query.student = studentId;
+    }
     if (serviceType && serviceType !== 'all') {
       query.serviceType = serviceType;
     }
@@ -108,7 +111,7 @@ const getFeeDues = async (req, res) => {
     }
 
     let dues = await FeeDue.find(query)
-      .populate('student', 'fullName studentId mobileNumber coaching library isArchived')
+      .populate('student', 'fullName studentId mobileNumber coaching library isArchived fatherName advanceFeeBalance')
       .sort({ dueDate: -1 });
 
     // Filter out archived students or filter by search

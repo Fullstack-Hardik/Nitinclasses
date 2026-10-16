@@ -19,6 +19,17 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
   const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
   const [receiptNumber, setReceiptNumber] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (feeDue) {
+      setAmountPaid(feeDue.remainingAmount.toString());
+      setReceiptPaymentId(null);
+      setReceiptNumber(null);
+      setError(null);
+      setNotes('');
+      setUpiTransactionRef('');
+    }
+  }, [feeDue?._id]);
+
   if (!feeDue) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,6 +82,12 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
     }
   };
 
+  const handleCloseModal = () => {
+    setReceiptPaymentId(null);
+    setReceiptNumber(null);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
       <div className="neu-card w-full max-w-lg p-6 sm:p-8 relative">
@@ -80,7 +97,7 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
             <p className="text-xs text-slate-500 mt-0.5">Cash / UPI fee collection</p>
           </div>
           <button 
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition"
           >
             <X className="w-5 h-5" />
@@ -89,16 +106,38 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
 
         {receiptPaymentId ? (
           /* Payment Success & Receipt download screen */
-          <div className="text-center py-6 space-y-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+          <div className="py-5 text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
               <IndianRupee className="w-7 h-7" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">Payment Recorded Successfully!</h3>
-            <p className="text-xs text-slate-500">
-              Receipt No: <span className="font-bold text-slate-800">{receiptNumber}</span>
-            </p>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Payment Recorded Successfully!</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Receipt No: <span className="font-bold text-slate-800 font-mono">{receiptNumber}</span>
+              </p>
+            </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            {/* Clear Month & Amount Confirmation */}
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs space-y-1.5 text-left font-medium">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Student:</span>
+                <span className="font-bold text-slate-900">{feeDue.student.fullName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Service:</span>
+                <span className="font-bold capitalize text-slate-900">{feeDue.serviceType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cycle / Month:</span>
+                <span className="font-semibold text-blue-700">{feeDue.billingPeriod}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-200">
+                <span className="text-slate-500">Amount Paid:</span>
+                <span className="font-extrabold text-emerald-700 text-sm">₹{amountPaid}</span>
+              </div>
+            </div>
+
+            <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-2.5">
               <button
                 type="button"
                 onClick={handleDownloadPDF}
@@ -109,10 +148,10 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
               </button>
               <button
                 type="button"
-                onClick={onClose}
-                className="neu-button w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-slate-700"
+                onClick={handleCloseModal}
+                className="neu-button w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-slate-700 hover:text-slate-900"
               >
-                Done / Close
+                Done / Back to List
               </button>
             </div>
           </div>
