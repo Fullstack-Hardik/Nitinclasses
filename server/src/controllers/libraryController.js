@@ -59,6 +59,17 @@ const getLibraryOverview = async (req, res) => {
       .populate('assignedStudent', 'fullName studentId mobileNumber library')
       .sort({ seatNumber: 1 });
 
+    // Auto-heal orphaned occupied seats:
+    // If a seat is marked 'occupied' but has no valid student, automatically release it
+    for (const seat of seats) {
+      if (seat.status === 'occupied' && !seat.assignedStudent) {
+        seat.status = 'available';
+        seat.assignedStudent = null;
+        seat.assignedAt = null;
+        await seat.save();
+      }
+    }
+
     const totalSeats = seats.length;
     const occupiedSeats = seats.filter(s => s.status === 'occupied').length;
     const blockedSeats = seats.filter(s => s.status === 'blocked').length;

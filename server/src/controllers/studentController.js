@@ -360,68 +360,50 @@ const updateStudent = async (req, res) => {
   }
 };
 
-// DELETE /api/students/:id (Safeguarded deletion workflow)
+// DELETE /api/students/:id (Permanent deletion workflow)
 const deleteStudent = async (req, res) => {
   try {
-    const { archiveConfirmed } = req.body;
-    if (!archiveConfirmed) {
-      return res.status(400).json({
-        success: false,
-        message: 'Student deletion requires exporting their financial records and providing explicit confirmation.'
-      });
-    }
-
     const student = await Student.findById(req.params.id);
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    // Release any allocated seat
+    // 1. Release ALL allocated seats across both libraries for this student
+    await Seat.updateMany(
+      { assignedStudent: student._id },
+      { status: 'available', assignedStudent: null, assignedAt: null }
+    );
     if (student.library?.seatNumber) {
-      const seat = await Seat.findOne({
-        libraryType: student.library.libraryType,
-        seatNumber: student.library.seatNumber
-      });
-      if (seat && seat.assignedStudent?.toString() === student._id.toString()) {
-        seat.status = 'available';
-        seat.assignedStudent = null;
-        seat.assignedAt = null;
-        await seat.save();
-      }
+      await Seat.updateMany(
+        { libraryType: student.library.libraryType, seatNumber: student.library.seatNumber },
+        { status: 'available', assignedStudent: null, assignedAt: null }
+      );
     }
 
-    // Soft delete/archive student to preserve historical fee dues and payments for accounting
-    student.isArchived = true;
-    student.archivedAt = new Date();
-    await student.save();
+    // 2. Remove all fee dues associated with this student
+    await FeeDue.deleteMany({ student: student._id });
 
-    // Zero out remaining dues for this deleted student so overdues drop to zero immediately
-    await FeeDue.updateMany(
-      { student: student._id, remainingAmount: { $gt: 0 } },
-      { $set: { remainingAmount: 0, status: 'cancelled' } }
-    );
+    // 3. Delete student PERMANENTLY from the MongoDB database
+    await Student.findByIdAndDelete(student._id);
 
     // Audit log
     await AuditLog.create({
-      action: 'DELETE_STUDENT_ARCHIVE',
+      action: 'DELETE_STUDENT_PERMANENT',
       performedBy: req.admin?.email || 'Admin',
       details: {
         studentId: student.studentId,
         fullName: student.fullName,
-        archivedAt: student.archivedAt
+        deletedAt: new Date()
       },
       ipAddress: req.ip
     });
 
-    // Invalidate dashboard and dues cache
-    cache.invalidate('dashboard');
-    cache.invalidate('dashboard_stats_6_months');
-    cache.invalidate('dashboard_stats_12_months');
-    cache.invalidate('dashboard_stats_current_year');
+    // Invalidate dashboard and all caches
+    cache.clear();
 
     return res.json({
       success: true,
-      message: `Student ${student.fullName} archived safely. Financial and payment history preserved.`
+      message: `Student ${student.fullName} deleted permanently from database and library seats freed.`
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
