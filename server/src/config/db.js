@@ -24,13 +24,14 @@ const connectDB = async () => {
 
     // Explicit Mongoose options for cloud environments (Render, Atlas)
     const conn = await mongoose.connect(uri, {
+      dbName: 'nitin_sir_classes',
       serverSelectionTimeoutMS: 8000, // Timeout fast after 8s instead of waiting indefinitely
       socketTimeoutMS: 45000,
       connectTimeoutMS: 10000,
       maxPoolSize: 10
     });
 
-    console.log(`[MongoDB] Connected successfully: ${conn.connection.host}`);
+    console.log(`[MongoDB] Connected successfully: ${conn.connection.host} (DB: ${conn.connection.name})`);
     return conn;
   } catch (error) {
     console.error(`[MongoDB Connection Error]: ${error.message}`);
