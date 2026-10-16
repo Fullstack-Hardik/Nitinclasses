@@ -67,31 +67,48 @@ const getDashboardStats = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$amountPaid' } } }
     ]);
 
-    // Outstanding and Overdue fees
+    // Active students only - ensure deleted/archived students never count towards overdues/dues
+    const activeStudents = await Student.find({ isArchived: false }).select('_id');
+    const activeStudentIds = activeStudents.map(s => s._id);
+
+    // Auto-heal any legacy dues of archived students to 0 remaining & cancelled
+    const archivedStudents = await Student.find({ isArchived: true }).select('_id');
+    if (archivedStudents.length > 0) {
+      const archivedIds = archivedStudents.map(s => s._id);
+      await FeeDue.updateMany(
+        { student: { $in: archivedIds }, remainingAmount: { $gt: 0 } },
+        { $set: { remainingAmount: 0, status: 'cancelled' } }
+      );
+    }
+
+    // Outstanding and Overdue fees (Strictly active students)
     // Outstanding includes all dues whose cycle has arrived
     const [outstandingDues] = await FeeDue.aggregate([
-      { $match: { remainingAmount: { $gt: 0 }, periodStartDate: { $lte: endOfToday } } },
+      { $match: { student: { $in: activeStudentIds }, remainingAmount: { $gt: 0 }, periodStartDate: { $lte: endOfToday } } },
       { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
     ]);
 
     // Overdue includes only past cycles whose cycle period has completely ended
     const [overdueDues] = await FeeDue.aggregate([
-      { $match: { remainingAmount: { $gt: 0 }, periodEndDate: { $lt: startOfToday } } },
+      { $match: { student: { $in: activeStudentIds }, remainingAmount: { $gt: 0 }, periodEndDate: { $lt: startOfToday } } },
       { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
     ]);
 
-    // Actionable Action Lists: Due Today, Due This Week, Upcoming
+    // Actionable Action Lists: Due Today, Due This Week, Upcoming (Active students only)
     const dueTodayList = await FeeDue.find({
+      student: { $in: activeStudentIds },
       remainingAmount: { $gt: 0 },
       dueDate: { $gte: startOfToday, $lt: tomorrow }
     }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(10);
 
     const dueThisWeekList = await FeeDue.find({
+      student: { $in: activeStudentIds },
       remainingAmount: { $gt: 0 },
       dueDate: { $gte: mondayOfWeek, $lt: sundayOfWeek }
     }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(15);
 
     const upcomingList = await FeeDue.find({
+      student: { $in: activeStudentIds },
       remainingAmount: { $gt: 0 },
       dueDate: { $gte: tomorrow, $lt: upcomingEnd }
     }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(10);

@@ -44,7 +44,7 @@ const feeDueSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['upcoming', 'due', 'overdue', 'partially_paid', 'paid'],
+    enum: ['upcoming', 'due', 'overdue', 'partially_paid', 'paid', 'cancelled'],
     default: 'due',
     index: true
   }

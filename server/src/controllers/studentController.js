@@ -395,6 +395,12 @@ const deleteStudent = async (req, res) => {
     student.archivedAt = new Date();
     await student.save();
 
+    // Zero out remaining dues for this deleted student so overdues drop to zero immediately
+    await FeeDue.updateMany(
+      { student: student._id, remainingAmount: { $gt: 0 } },
+      { $set: { remainingAmount: 0, status: 'cancelled' } }
+    );
+
     // Audit log
     await AuditLog.create({
       action: 'DELETE_STUDENT_ARCHIVE',
@@ -407,8 +413,11 @@ const deleteStudent = async (req, res) => {
       ipAddress: req.ip
     });
 
-    // Invalidate dashboard cache
+    // Invalidate dashboard and dues cache
     cache.invalidate('dashboard');
+    cache.invalidate('dashboard_stats_6_months');
+    cache.invalidate('dashboard_stats_12_months');
+    cache.invalidate('dashboard_stats_current_year');
 
     return res.json({
       success: true,

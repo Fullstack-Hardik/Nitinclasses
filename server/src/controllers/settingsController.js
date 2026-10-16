@@ -223,10 +223,138 @@ const exportStudentArchive = async (req, res) => {
   }
 };
 
+const Admin = require('../models/Admin');
+const AuditLog = require('../models/AuditLog');
+const cache = require('../services/cacheService');
+const { getCycleStatus } = require('../services/codeService');
+
+const verifyAdminPassword = async (adminId, password) => {
+  if (!password) {
+    throw new Error('Admin password is required to authorize this action.');
+  }
+  const admin = await Admin.findById(adminId);
+  if (!admin) {
+    throw new Error('Admin account not found.');
+  }
+  const isMatch = await admin.comparePassword(password);
+  if (!isMatch) {
+    throw new Error('Incorrect Admin Password. Action aborted.');
+  }
+  return admin;
+};
+
+// POST /api/settings/danger/wipe-payments
+const dangerWipePayments = async (req, res) => {
+  try {
+    const admin = await verifyAdminPassword(req.admin._id, req.body.password);
+
+    const deletedPaymentsCount = await Payment.countDocuments();
+    await Payment.deleteMany({});
+
+    // Reset student advance balances
+    await Student.updateMany({}, { advanceFeeBalance: 0 });
+
+    // Reset fee dues: paidAmount = 0, remainingAmount = amount, status recalculated
+    const dues = await FeeDue.find({});
+    for (const due of dues) {
+      due.paidAmount = 0;
+      due.remainingAmount = due.amount;
+      due.status = getCycleStatus(due);
+      await due.save();
+    }
+
+    cache.clear();
+
+    await AuditLog.create({
+      action: 'DANGER_WIPE_PAYMENTS',
+      performedBy: admin.email,
+      details: { deletedPaymentsCount },
+      ipAddress: req.ip
+    });
+
+    return res.json({
+      success: true,
+      message: `Cleared ${deletedPaymentsCount} payment receipts. Dues have been reset to unpaid.`
+    });
+  } catch (error) {
+    return res.status(error.message.includes('Password') || error.message.includes('password') ? 401 : 500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// POST /api/settings/danger/wipe-students
+const dangerWipeStudents = async (req, res) => {
+  try {
+    const admin = await verifyAdminPassword(req.admin._id, req.body.password);
+
+    const studentCount = await Student.countDocuments();
+    await Student.deleteMany({});
+    await FeeDue.deleteMany({});
+    await Payment.deleteMany({});
+    await Seat.updateMany({}, { status: 'available', assignedStudent: null, assignedAt: null });
+
+    cache.clear();
+
+    await AuditLog.create({
+      action: 'DANGER_WIPE_STUDENTS',
+      performedBy: admin.email,
+      details: { deletedStudentsCount: studentCount },
+      ipAddress: req.ip
+    });
+
+    return res.json({
+      success: true,
+      message: `Deleted all ${studentCount} students, fee dues, payments, and unassigned library seats.`
+    });
+  } catch (error) {
+    return res.status(error.message.includes('Password') || error.message.includes('password') ? 401 : 500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// POST /api/settings/danger/wipe-all
+const dangerWipeAll = async (req, res) => {
+  try {
+    const admin = await verifyAdminPassword(req.admin._id, req.body.password);
+
+    await Student.deleteMany({});
+    await FeeDue.deleteMany({});
+    await Payment.deleteMany({});
+    await Seat.updateMany({}, { status: 'available', assignedStudent: null, assignedAt: null });
+    await AuditLog.deleteMany({});
+
+    cache.clear();
+
+    await AuditLog.create({
+      action: 'DANGER_WIPE_ALL',
+      performedBy: admin.email,
+      details: { timestamp: new Date() },
+      ipAddress: req.ip
+    });
+
+    return res.json({
+      success: true,
+      message: 'All application data (students, payments, fees, seats) has been completely wiped.'
+    });
+  } catch (error) {
+    return res.status(error.message.includes('Password') || error.message.includes('password') ? 401 : 500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   getSettings,
   updateSettings,
   exportStudentsExcel,
   exportPaymentsExcel,
-  exportStudentArchive
+  exportStudentArchive,
+  dangerWipePayments,
+  dangerWipeStudents,
+  dangerWipeAll
 };
