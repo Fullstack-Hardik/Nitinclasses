@@ -23,6 +23,48 @@ import { CollectFeeModal } from './CollectFeeModal';
 import { DirectCollectFeeModal } from './DirectCollectFeeModal';
 import { ManipulateFeeModal } from './ManipulateFeeModal';
 
+// Helper to evaluate running month (Due - Orange) vs expired past month (Overdue - Red)
+export const getCycleEvaluation = (due: FeeDue) => {
+  const isPaid = due.status === 'paid' || due.remainingAmount === 0;
+  if (isPaid) {
+    return {
+      statusType: 'paid',
+      label: 'Paid ✓',
+      badgeClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold',
+      isCurrent: false,
+      isOverdue: false
+    };
+  }
+
+  const now = new Date();
+  const end = new Date(due.periodEndDate || due.dueDate);
+  end.setHours(23, 59, 59, 999);
+
+  const start = new Date(due.periodStartDate);
+  start.setHours(0, 0, 0, 0);
+
+  const isOverdue = now > end;
+  const isRunning = now >= start && now <= end;
+
+  if (isOverdue) {
+    return {
+      statusType: 'overdue',
+      label: 'Overdue',
+      badgeClass: 'bg-red-50 text-red-800 border border-red-300 font-bold',
+      isCurrent: false,
+      isOverdue: true
+    };
+  }
+
+  return {
+    statusType: 'due',
+    label: isRunning ? 'Due (Running)' : 'Due',
+    badgeClass: 'bg-amber-100 text-amber-900 border border-amber-300 font-bold',
+    isCurrent: isRunning,
+    isOverdue: false
+  };
+};
+
 export const FeesPage: React.FC = () => {
   const [dues, setDues] = useState<FeeDue[]>([]);
   const [search, setSearch] = useState('');
@@ -163,9 +205,10 @@ export const FeesPage: React.FC = () => {
         grp.libraryRemaining += due.remainingAmount;
       }
 
-      if (due.status === 'overdue') grp.overdueCount++;
-      else if (due.status === 'due' || due.status === 'partially_paid') grp.dueCount++;
-      else if (due.status === 'paid') grp.paidCount++;
+      const evalResult = getCycleEvaluation(due);
+      if (evalResult.statusType === 'paid') grp.paidCount++;
+      else if (evalResult.statusType === 'overdue') grp.overdueCount++;
+      else grp.dueCount++;
     }
 
     return Array.from(map.values());
@@ -409,6 +452,19 @@ export const FeesPage: React.FC = () => {
                           <span className={`text-sm font-extrabold ${isFullySettled ? 'text-emerald-600' : 'text-amber-600'}`}>
                             {isFullySettled ? '₹0 (Settled)' : `₹${grp.totalRemaining.toLocaleString('en-IN')}`}
                           </span>
+                          {grp.overdueCount > 0 ? (
+                            <span className="block text-[10px] text-red-600 font-bold mt-0.5">
+                              ⚠️ {grp.overdueCount} Overdue
+                            </span>
+                          ) : grp.dueCount > 0 ? (
+                            <span className="block text-[10px] text-amber-700 font-bold mt-0.5">
+                              ⚡ Current Month Due
+                            </span>
+                          ) : (
+                            <span className="block text-[10px] text-emerald-600 font-bold mt-0.5">
+                              ✓ All Paid
+                            </span>
+                          )}
                           {grp.student?.advanceFeeBalance > 0 && (
                             <div className="text-[10px] text-blue-600 font-semibold">
                               Advance: ₹{grp.student.advanceFeeBalance}
@@ -509,7 +565,7 @@ export const FeesPage: React.FC = () => {
                                       </thead>
                                       <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
                                         {grp.coachingDues.map((due) => {
-                                          const isDuePaid = due.status === 'paid' || due.remainingAmount === 0;
+                                          const statusEval = getCycleEvaluation(due);
                                           return (
                                             <tr key={due._id} className="hover:bg-slate-50/80">
                                               <td className="py-2 px-2 font-semibold text-slate-800">
@@ -519,22 +575,12 @@ export const FeesPage: React.FC = () => {
                                               <td className="py-2 px-2 text-emerald-700 font-semibold">₹{due.paidAmount}</td>
                                               <td className="py-2 px-2 font-bold text-amber-600">₹{due.remainingAmount}</td>
                                               <td className="py-2 px-2">
-                                                {isDuePaid ? (
-                                                  <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                    Paid ✓
-                                                  </span>
-                                                ) : due.status === 'overdue' ? (
-                                                  <span className="text-red-700 bg-red-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                    Overdue
-                                                  </span>
-                                                ) : (
-                                                  <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                    Due
-                                                  </span>
-                                                )}
+                                                <span className={`px-2 py-0.5 rounded text-[10px] ${statusEval.badgeClass}`}>
+                                                  {statusEval.label}
+                                                </span>
                                               </td>
                                               <td className="py-2 px-2 text-right">
-                                                {!isDuePaid ? (
+                                                {statusEval.statusType !== 'paid' ? (
                                                   <button
                                                     type="button"
                                                     onClick={() => setSelectedFeeDue(due)}
@@ -588,7 +634,7 @@ export const FeesPage: React.FC = () => {
                                       </thead>
                                       <tbody className="divide-y divide-slate-100 font-medium text-[11px]">
                                         {grp.libraryDues.map((due) => {
-                                          const isDuePaid = due.status === 'paid' || due.remainingAmount === 0;
+                                          const statusEval = getCycleEvaluation(due);
                                           return (
                                             <tr key={due._id} className="hover:bg-slate-50/80">
                                               <td className="py-2 px-2 font-semibold text-slate-800">
@@ -598,22 +644,12 @@ export const FeesPage: React.FC = () => {
                                               <td className="py-2 px-2 text-emerald-700 font-semibold">₹{due.paidAmount}</td>
                                               <td className="py-2 px-2 font-bold text-amber-600">₹{due.remainingAmount}</td>
                                               <td className="py-2 px-2">
-                                                {isDuePaid ? (
-                                                  <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                    Paid ✓
-                                                  </span>
-                                                ) : due.status === 'overdue' ? (
-                                                  <span className="text-red-700 bg-red-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                    Overdue
-                                                  </span>
-                                                ) : (
-                                                  <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                    Due
-                                                  </span>
-                                                )}
+                                                <span className={`px-2 py-0.5 rounded text-[10px] ${statusEval.badgeClass}`}>
+                                                  {statusEval.label}
+                                                </span>
                                               </td>
                                               <td className="py-2 px-2 text-right">
-                                                {!isDuePaid ? (
+                                                {statusEval.statusType !== 'paid' ? (
                                                   <button
                                                     type="button"
                                                     onClick={() => setSelectedFeeDue(due)}
@@ -690,19 +726,21 @@ export const FeesPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        {isPaid ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                            <CheckCircle2 className="w-3 h-3" /> Paid
-                          </span>
-                        ) : isOverdue ? (
-                          <span className="inline-flex items-center gap-1 text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                            <AlertCircle className="w-3 h-3" /> Overdue
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                            <Clock className="w-3 h-3" /> Due
-                          </span>
-                        )}
+                        {(() => {
+                          const statusEval = getCycleEvaluation(due);
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] ${statusEval.badgeClass}`}>
+                              {statusEval.isOverdue ? (
+                                <AlertCircle className="w-3 h-3" />
+                              ) : statusEval.statusType === 'paid' ? (
+                                <CheckCircle2 className="w-3 h-3" />
+                              ) : (
+                                <Clock className="w-3 h-3" />
+                              )}
+                              {statusEval.label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">

@@ -68,15 +68,15 @@ const getDashboardStats = async (req, res) => {
     ]);
 
     // Outstanding and Overdue fees
-    // Outstanding includes only completed past cycles and today's due (never future incomplete cycles)
+    // Outstanding includes all dues whose cycle has arrived
     const [outstandingDues] = await FeeDue.aggregate([
-      { $match: { remainingAmount: { $gt: 0 }, dueDate: { $lte: endOfToday } } },
+      { $match: { remainingAmount: { $gt: 0 }, periodStartDate: { $lte: endOfToday } } },
       { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
     ]);
 
-    // Overdue includes only past cycles whose due date has strictly elapsed
+    // Overdue includes only past cycles whose cycle period has completely ended
     const [overdueDues] = await FeeDue.aggregate([
-      { $match: { remainingAmount: { $gt: 0 }, dueDate: { $lt: startOfToday } } },
+      { $match: { remainingAmount: { $gt: 0 }, periodEndDate: { $lt: startOfToday } } },
       { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
     ]);
 

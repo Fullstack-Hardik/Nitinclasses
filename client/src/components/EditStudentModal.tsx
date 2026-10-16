@@ -222,26 +222,34 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
             </h3>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { id: 'coaching_only', label: 'Coaching Only' },
-                { id: 'library_only', label: 'Library Only' },
-                { id: 'coaching_and_library', label: 'Coaching + Library' }
+                { id: 'coaching_only', label: 'Coaching Only', code: 'C1-...' },
+                { id: 'library_only', label: 'Library Only', code: 'L1-...' },
+                { id: 'coaching_and_library', label: 'Coaching + Library', code: 'LC1-...' }
               ].map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => setMembershipType(opt.id as any)}
                   className={`
-                    p-3 rounded-xl text-xs font-bold text-center border transition-all
+                    p-3 rounded-xl text-xs font-bold text-center border transition-all flex flex-col items-center justify-center gap-1
                     ${membershipType === opt.id
                       ? 'bg-slate-900 text-white border-slate-900 shadow-md'
                       : 'neu-button text-slate-700 border-transparent hover:bg-slate-200/60'
                     }
                   `}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${membershipType === opt.id ? 'bg-slate-800 text-slate-300' : 'text-slate-400'}`}>
+                    ID: {opt.code}
+                  </span>
                 </button>
               ))}
             </div>
+            {student && student.membershipType !== membershipType && (
+              <p className="text-[11px] text-blue-600 mt-2 font-medium">
+                ℹ️ Changing service will automatically re-assign student ID code to match ({membershipType === 'library_only' ? 'L1' : membershipType === 'coaching_and_library' ? 'LC1' : 'C1'}).
+              </p>
+            )}
           </div>
 
           {/* Section C: Coaching Settings */}

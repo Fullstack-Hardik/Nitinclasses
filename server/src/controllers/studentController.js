@@ -6,17 +6,7 @@ const AuditLog = require('../models/AuditLog');
 const cache = require('../services/cacheService');
 const { generateDuesForStudent } = require('../services/billingService');
 
-// Helper to auto-generate unique Student ID (e.g. NSC-1001)
-const generateStudentId = async () => {
-  const count = await Student.countDocuments();
-  let candidateNum = count + 1001;
-  let id = `NSC-${candidateNum}`;
-  while (await Student.findOne({ studentId: id })) {
-    candidateNum++;
-    id = `NSC-${candidateNum}`;
-  }
-  return id;
-};
+const { generateStudentId, reassignStudentIdIfNeeded } = require('../services/codeService');
 
 // GET /api/students
 const getStudents = async (req, res) => {
@@ -162,7 +152,7 @@ const createStudent = async (req, res) => {
       }
     }
 
-    const studentId = await generateStudentId();
+    const studentId = await generateStudentId(membershipType);
 
     const hasCoaching = membershipType === 'coaching_only' || membershipType === 'coaching_and_library';
     const hasLibrary = membershipType === 'library_only' || membershipType === 'coaching_and_library';
@@ -282,6 +272,7 @@ const updateStudent = async (req, res) => {
     if (advanceFeeBalance !== undefined) student.advanceFeeBalance = Number(advanceFeeBalance);
 
     if (membershipType) {
+      await reassignStudentIdIfNeeded(student, membershipType);
       student.membershipType = membershipType;
       const hasCoaching = membershipType === 'coaching_only' || membershipType === 'coaching_and_library';
       const hasLibrary = membershipType === 'library_only' || membershipType === 'coaching_and_library';

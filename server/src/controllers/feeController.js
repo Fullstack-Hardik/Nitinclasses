@@ -5,23 +5,28 @@ const Settings = require('../models/Settings');
 const cache = require('../services/cacheService');
 const { generateReceiptPDF, generateStudentFeeStatementPDF } = require('../services/receiptService');
 const { syncAllStudentsDues } = require('../services/billingService');
-
-// Helper to generate unique receipt number
-const generateReceiptNumber = async () => {
-  const settings = await Settings.findOne();
-  const prefix = settings?.receiptPrefix || 'NSC-REC';
-  const today = new Date();
-  const yearStr = today.getFullYear().toString().slice(-2);
-  const count = await Payment.countDocuments();
-  return `${prefix}-${yearStr}-${(count + 1001).toString()}`;
-};
+const { generateReceiptNumber, getCycleStatus } = require('../services/codeService');
 
 // GET /api/fees (Coaching / Library fee dues)
 const getFeeDues = async (req, res) => {
   try {
     const { serviceType, status, search, studentId } = req.query;
 
-    // Optional background sync check
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // Ensure running months are marked 'due' and only past expired months are 'overdue'
+    await FeeDue.updateMany(
+      { remainingAmount: { $gt: 0 }, periodEndDate: { $gte: today }, status: 'overdue' },
+      { $set: { status: 'due' } }
+    );
+    await FeeDue.updateMany(
+      { remainingAmount: { $gt: 0 }, periodEndDate: { $lt: today }, status: { $in: ['due', 'upcoming'] } },
+      { $set: { status: 'overdue' } }
+    );
+
     let query = {};
     if (studentId) {
       query.student = studentId;
@@ -29,11 +34,6 @@ const getFeeDues = async (req, res) => {
     if (serviceType && serviceType !== 'all') {
       query.serviceType = serviceType;
     }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
 
     const now = new Date();
 
@@ -56,20 +56,18 @@ const getFeeDues = async (req, res) => {
       query.dueDate = { $gte: monday, $lt: sunday };
       query.remainingAmount = { $gt: 0 };
     } else if (status === 'upcoming') {
-      // Due in the next 7 days from tomorrow
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const nextWeek = new Date(today);
-      nextWeek.setDate(today.getDate() + 8);
-      query.dueDate = { $gte: tomorrow, $lt: nextWeek };
+      // Future cycles whose period starts after today
+      query.periodStartDate = { $gt: endOfToday };
       query.remainingAmount = { $gt: 0 };
-    } else if (status === 'pending') {
+    } else if (status === 'pending' || status === 'due') {
+      // Active running month cycles
       query.remainingAmount = { $gt: 0 };
-      query.status = { $in: ['due', 'partially_paid'] };
-      query.dueDate = { $lte: endOfToday };
+      query.periodEndDate = { $gte: today };
+      query.periodStartDate = { $lte: endOfToday };
     } else if (status === 'overdue') {
+      // Past month cycles that have strictly elapsed
       query.remainingAmount = { $gt: 0 };
-      query.dueDate = { $lt: today };
+      query.periodEndDate = { $lt: today };
     } else if (status === 'paid') {
       query.remainingAmount = 0;
     } else if (status === 'current_month') {
@@ -77,9 +75,9 @@ const getFeeDues = async (req, res) => {
       const nextMonthFirstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       query.dueDate = { $gte: firstDay, $lt: nextMonthFirstDay };
     } else {
-      // For default 'all', only show dues up to today unless specifically searching
+      // For default 'all', only show dues whose period has arrived
       if (!req.query.year && !req.query.startDate && !status) {
-        query.dueDate = { $lte: endOfToday };
+        query.periodStartDate = { $lte: endOfToday };
       }
     }
 
@@ -188,7 +186,7 @@ const collectPayment = async (req, res) => {
     }
 
     // Generate receipt number & save Payment record
-    const receiptNumber = await generateReceiptNumber();
+    const receiptNumber = await generateReceiptNumber(feeDue.student);
     const payment = await Payment.create({
       receiptNumber,
       student: feeDue.student._id,
@@ -277,7 +275,7 @@ const collectStudentFeeDirect = async (req, res) => {
       await due.save();
       lastFeeDue = due;
 
-      const receiptNumber = await generateReceiptNumber();
+      const receiptNumber = await generateReceiptNumber(student);
       const p = await Payment.create({
         receiptNumber,
         student: student._id,
@@ -308,7 +306,7 @@ const collectStudentFeeDirect = async (req, res) => {
       await student.save();
 
       // Create a receipt payment for this advance deposit
-      const receiptNumber = await generateReceiptNumber();
+      const receiptNumber = await generateReceiptNumber(student);
       // If student has a lastFeeDue, reference it, else find any feeDue or leave as dummy
       const fallbackFeeDue = lastFeeDue || await FeeDue.findOne({ student: student._id, serviceType });
 

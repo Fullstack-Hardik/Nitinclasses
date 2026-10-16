@@ -69,8 +69,8 @@ async function generateDuesForStudent(student, serviceType) {
     const endStr = periodEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
     const billingPeriod = `${startStr} - ${endStr}`;
 
-    // Due date is the anniversary date when the cycle begins
-    const dueDate = new Date(periodStart);
+    // Due date represents the period end date when the month completes
+    const dueDate = new Date(periodEnd);
 
     // Check if this fee due already exists
     const existing = await FeeDue.findOne({
@@ -79,11 +79,13 @@ async function generateDuesForStudent(student, serviceType) {
       billingPeriod
     });
 
+    // Check if cycle period has completed in the past
+    const endOfPeriodMidnight = new Date(periodEnd);
+    endOfPeriodMidnight.setHours(23, 59, 59, 999);
+    const isPeriodCompleted = now > endOfPeriodMidnight;
+
     if (!existing) {
-      // Determine initial status based on due date vs today (IST start of today)
-      const startOfToday = new Date(nowYear, nowMonth, nowDay, 0, 0, 0, 0);
-      const isPastDue = dueDate < startOfToday;
-      let initialStatus = isPastDue ? 'overdue' : 'due';
+      let initialStatus = isPeriodCompleted ? 'overdue' : 'due';
       let paidAmount = 0;
       let remainingAmount = feeAmount;
 
@@ -91,12 +93,12 @@ async function generateDuesForStudent(student, serviceType) {
       if (student.advanceFeeBalance && student.advanceFeeBalance > 0) {
         const Student = require('../models/Student');
         const Payment = require('../models/Payment');
-        const Settings = require('../models/Settings');
+        const { generateReceiptNumber } = require('./codeService');
 
         const advanceToUse = Math.min(student.advanceFeeBalance, feeAmount);
         paidAmount = advanceToUse;
         remainingAmount = feeAmount - advanceToUse;
-        initialStatus = remainingAmount === 0 ? 'paid' : 'partially_paid';
+        initialStatus = remainingAmount === 0 ? 'paid' : (isPeriodCompleted ? 'overdue' : 'due');
 
         // Deduct from student's advance credit
         student.advanceFeeBalance -= advanceToUse;
@@ -115,12 +117,7 @@ async function generateDuesForStudent(student, serviceType) {
           status: initialStatus
         });
 
-        // Record a Payment record for this auto-settled due
-        const settings = await Settings.findOne();
-        const prefix = settings?.receiptPrefix || 'NSC-REC';
-        const yearStr = new Date().getFullYear().toString().slice(-2);
-        const count = await Payment.countDocuments();
-        const receiptNumber = `${prefix}-${yearStr}-${(count + 1001).toString()}`;
+        const receiptNumber = await generateReceiptNumber(student);
 
         await Payment.create({
           receiptNumber,
@@ -158,23 +155,19 @@ async function generateDuesForStudent(student, serviceType) {
       if (existing.remainingAmount > 0 && student.advanceFeeBalance && student.advanceFeeBalance > 0) {
         const Student = require('../models/Student');
         const Payment = require('../models/Payment');
-        const Settings = require('../models/Settings');
+        const { generateReceiptNumber } = require('./codeService');
 
         const advanceToUse = Math.min(student.advanceFeeBalance, existing.remainingAmount);
         const prevPaid = existing.paidAmount;
         existing.paidAmount += advanceToUse;
         existing.remainingAmount -= advanceToUse;
-        existing.status = existing.remainingAmount === 0 ? 'paid' : 'partially_paid';
+        existing.status = existing.remainingAmount === 0 ? 'paid' : (isPeriodCompleted ? 'overdue' : 'due');
         await existing.save();
 
         student.advanceFeeBalance -= advanceToUse;
         await Student.findByIdAndUpdate(student._id, { advanceFeeBalance: student.advanceFeeBalance });
 
-        const settings = await Settings.findOne();
-        const prefix = settings?.receiptPrefix || 'NSC-REC';
-        const yearStr = new Date().getFullYear().toString().slice(-2);
-        const count = await Payment.countDocuments();
-        const receiptNumber = `${prefix}-${yearStr}-${(count + 1001).toString()}`;
+        const receiptNumber = await generateReceiptNumber(student);
 
         await Payment.create({
           receiptNumber,
@@ -190,9 +183,12 @@ async function generateDuesForStudent(student, serviceType) {
           notes: 'Auto-settled from advance fee balance',
           paymentDate: new Date()
         });
-      } else if (existing.remainingAmount > 0 && existing.dueDate < new Date(nowYear, nowMonth, nowDay, 0, 0, 0, 0) && existing.status !== 'overdue') {
-        existing.status = 'overdue';
-        await existing.save();
+      } else if (existing.remainingAmount > 0) {
+        const targetStatus = isPeriodCompleted ? 'overdue' : 'due';
+        if (existing.status !== targetStatus && existing.status !== 'partially_paid') {
+          existing.status = targetStatus;
+          await existing.save();
+        }
       }
     }
 
@@ -208,7 +204,7 @@ async function generateDuesForStudent(student, serviceType) {
 }
 
 /**
- * Syncs dues for all active students.
+ * Syncs dues for all active students and enforces due vs overdue status.
  */
 async function syncAllStudentsDues() {
   const Student = require('../models/Student');
@@ -221,6 +217,18 @@ async function syncAllStudentsDues() {
       await generateDuesForStudent(student, 'library');
     }
   }
+
+  // Enforce running months are 'due' and expired past months are 'overdue'
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  await FeeDue.updateMany(
+    { remainingAmount: { $gt: 0 }, periodEndDate: { $gte: todayStart }, status: 'overdue' },
+    { $set: { status: 'due' } }
+  );
+  await FeeDue.updateMany(
+    { remainingAmount: { $gt: 0 }, periodEndDate: { $lt: todayStart }, status: { $in: ['due', 'upcoming'] } },
+    { $set: { status: 'overdue' } }
+  );
 }
 
 module.exports = {
