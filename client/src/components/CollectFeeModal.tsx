@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, IndianRupee, Download } from 'lucide-react';
 import api from '../services/api';
 import { FeeDue } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface CollectFeeModalProps {
   feeDue: FeeDue | null;
@@ -10,6 +11,7 @@ interface CollectFeeModalProps {
 }
 
 export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClose, onSuccess }) => {
+  const toast = useToast();
   const [amountPaid, setAmountPaid] = useState<string>(feeDue ? feeDue.remainingAmount.toString() : '');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi'>('cash');
   const [upiTransactionRef, setUpiTransactionRef] = useState('');
@@ -55,11 +57,14 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
       if (res.data.success) {
         setReceiptPaymentId(res.data.data.payment._id);
         setReceiptNumber(res.data.data.payment.receiptNumber);
+        toast.success(`Payment of ₹${num} recorded successfully!`);
         window.dispatchEvent(new Event('nsc_fees_updated'));
         onSuccess();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to record payment.');
+      const msg = err.response?.data?.message || 'Failed to record payment.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -78,8 +83,9 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
+      toast.info('Receipt downloaded');
     } catch (err: any) {
-      alert('Error downloading receipt: ' + err.message);
+      toast.error('Error downloading receipt: ' + err.message);
     }
   };
 
@@ -178,6 +184,12 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
               <div className="flex justify-between">
                 <span className="text-slate-500">Billing Period:</span>
                 <span className="font-medium text-slate-800">{feeDue.billingPeriod}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Advance Balance:</span>
+                <span className={`font-semibold ${((feeDue.student as any)?.advanceFeeBalance || 0) > 0 ? 'text-emerald-700 font-bold' : 'text-slate-600'}`}>
+                  ₹{((feeDue.student as any)?.advanceFeeBalance || 0)}
+                </span>
               </div>
               <div className="flex justify-between pt-1 border-t border-slate-200">
                 <span className="text-slate-500">Original Fee:</span>

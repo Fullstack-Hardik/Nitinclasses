@@ -22,6 +22,7 @@ import { FeeDue, Student } from '../types';
 import { CollectFeeModal } from './CollectFeeModal';
 import { DirectCollectFeeModal } from './DirectCollectFeeModal';
 import { ManipulateFeeModal } from './ManipulateFeeModal';
+import { useToast } from '../context/ToastContext';
 
 // Helper to evaluate running month (Due - Orange) vs expired past month (Overdue - Red)
 export const getCycleEvaluation = (due: FeeDue) => {
@@ -66,6 +67,8 @@ export const getCycleEvaluation = (due: FeeDue) => {
 };
 
 export const FeesPage: React.FC = () => {
+  const toast = useToast();
+
   const [dues, setDues] = useState<FeeDue[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'due_today' | 'pending' | 'overdue' | 'paid'>('all');
@@ -130,9 +133,10 @@ export const FeesPage: React.FC = () => {
     try {
       setSyncing(true);
       await api.post('/fees/sync');
+      toast.success('All student fee cycles synced & auto-deductions applied successfully!');
       fetchDues();
     } catch (err: any) {
-      alert('Error triggering recurring billing generation: ' + err.message);
+      toast.error('Error triggering billing generation: ' + err.message);
     } finally {
       setSyncing(false);
     }
@@ -143,8 +147,13 @@ export const FeesPage: React.FC = () => {
     setSmartModeEnabled(nextState);
     try {
       await api.put('/settings', { smartModeEnabled: nextState });
+      if (nextState) {
+        toast.smart('Smart Mode Activated! Edit buttons are now visible on all fee cycles.', 'Smart Mode ON ✓');
+      } else {
+        toast.info('Smart Mode turned OFF.', 'Smart Mode');
+      }
     } catch (err: any) {
-      console.error('Failed to toggle smart mode:', err);
+      toast.error('Failed to update Smart Mode: ' + err.message);
     }
   };
 
@@ -492,11 +501,16 @@ export const FeesPage: React.FC = () => {
                               ✓ All Paid
                             </span>
                           )}
-                          {grp.student?.advanceFeeBalance > 0 && (
-                            <div className="text-[10px] text-blue-600 font-semibold">
-                              Advance: ₹{grp.student.advanceFeeBalance}
-                            </div>
-                          )}
+                          {/* Advance Fee Status - Always show: if 0 show 0, if yes show value */}
+                          <div className="mt-1">
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                              (grp.student?.advanceFeeBalance || 0) > 0
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
+                                : 'bg-slate-100 text-slate-500 border-slate-200'
+                            }`}>
+                              💼 Advance: ₹{grp.student?.advanceFeeBalance || 0}
+                            </span>
+                          </div>
                         </td>
 
                         {/* Monthly Cycles Preview */}
@@ -520,6 +534,7 @@ export const FeesPage: React.FC = () => {
                                 type="button"
                                 onClick={async () => {
                                   try {
+                                    toast.info('Generating PDF Statement...');
                                     const response = await api.get(`/fees/student/${grp.student._id}/statement/pdf`, {
                                       responseType: 'blob'
                                     });
@@ -530,8 +545,9 @@ export const FeesPage: React.FC = () => {
                                     document.body.appendChild(link);
                                     link.click();
                                     link.parentNode?.removeChild(link);
+                                    toast.success('Fee statement downloaded successfully!');
                                   } catch (err: any) {
-                                    alert('Failed to download statement: ' + err.message);
+                                    toast.error('Failed to download statement: ' + err.message);
                                   }
                                 }}
                                 title="Download Full Ledger & Statement PDF"
@@ -588,9 +604,18 @@ export const FeesPage: React.FC = () => {
                                       📚 Coaching Monthly Cycles ({grp.coachingDues.length})
                                     </h4>
                                   </div>
-                                  <span className="text-[11px] font-bold text-indigo-700">
-                                    Remaining: ₹{grp.coachingRemaining}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                      (grp.student?.advanceFeeBalance || 0) > 0
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-slate-50 text-slate-500 border-slate-200'
+                                    }`}>
+                                      💼 Advance: ₹{grp.student?.advanceFeeBalance || 0}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-indigo-700">
+                                      Remaining: ₹{grp.coachingRemaining}
+                                    </span>
+                                  </div>
                                 </div>
 
                                 {grp.coachingDues.length === 0 ? (
@@ -670,9 +695,18 @@ export const FeesPage: React.FC = () => {
                                       📖 Library Monthly Cycles ({grp.libraryDues.length})
                                     </h4>
                                   </div>
-                                  <span className="text-[11px] font-bold text-purple-700">
-                                    Remaining: ₹{grp.libraryRemaining}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                      (grp.student?.advanceFeeBalance || 0) > 0
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-slate-50 text-slate-500 border-slate-200'
+                                    }`}>
+                                      💼 Advance: ₹{grp.student?.advanceFeeBalance || 0}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-purple-700">
+                                      Remaining: ₹{grp.libraryRemaining}
+                                    </span>
+                                  </div>
                                 </div>
 
                                 {grp.libraryDues.length === 0 ? (
@@ -779,6 +813,15 @@ export const FeesPage: React.FC = () => {
                       <td className="py-3 px-4 font-semibold text-slate-800">
                         <div>{due.student?.fullName || 'N/A'}</div>
                         <div className="text-[10px] text-slate-400 font-normal">ID: {due.student?.studentId}</div>
+                        <div className="mt-0.5">
+                          <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                            (due.student?.advanceFeeBalance || 0) > 0
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-slate-100 text-slate-500 border-slate-200 font-normal'
+                          }`}>
+                            💼 Advance: ₹{due.student?.advanceFeeBalance || 0}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-3 px-4 capitalize">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -822,6 +865,7 @@ export const FeesPage: React.FC = () => {
                               type="button"
                               onClick={async () => {
                                 try {
+                                  toast.info('Generating PDF Statement...');
                                   const response = await api.get(`/fees/student/${due.student._id}/statement/pdf`, {
                                     responseType: 'blob'
                                   });
@@ -832,8 +876,9 @@ export const FeesPage: React.FC = () => {
                                   document.body.appendChild(link);
                                   link.click();
                                   link.parentNode?.removeChild(link);
+                                  toast.success('Fee statement downloaded successfully!');
                                 } catch (err: any) {
-                                  alert('Failed to download statement: ' + err.message);
+                                  toast.error('Failed to download statement: ' + err.message);
                                 }
                               }}
                               title="Download Full Ledger & Statement PDF"

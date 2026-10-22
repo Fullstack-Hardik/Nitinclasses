@@ -108,6 +108,13 @@ async function generateDuesForStudent(student, serviceType) {
   // Pre-cleanup any existing duplicate cycles before generating new ones
   await cleanupDuplicateDues(student._id, serviceType);
 
+  // Freshly fetch student document to ensure live accurate advance balance
+  const Student = require('../models/Student');
+  const freshStudent = await Student.findById(student._id);
+  if (freshStudent) {
+    student.advanceFeeBalance = freshStudent.advanceFeeBalance || 0;
+  }
+
   // Extract year, month, day in IST (Indian Standard Time) to prevent any 5.5hr UTC drift
   const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
   const [jYearStr, jMonthStr, jDayStr] = istFormatter.format(new Date(service.joiningDate)).split('-');

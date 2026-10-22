@@ -1,104 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-[#F5F7FB] text-[#101828] antialiased selection:bg-blue-100 selection:text-blue-900;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    @apply bg-[#F0F3F8] text-[#1E293B] antialiased selection:bg-blue-100 selection:text-blue-900;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   }
 }
 
-/* Material Design 3 / Google Workspace Clean Surfaces */
-.m3-surface {
+/* 3D NEUMORPHIC DESIGN SYSTEM TOKENS */
+
+/* Tactile 3D Neumorphic Primary Card */
+.neu-card {
   background: #FFFFFF;
-  border: 1px solid #E5E9F0;
-  border-radius: 0.75rem; /* 12px */
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 1rem; /* 16px */
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.03),
+    0 2px 4px -2px rgba(0, 0, 0, 0.03),
+    4px 4px 14px rgba(195, 206, 224, 0.35),
+    -4px -4px 14px rgba(255, 255, 255, 0.95);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.m3-surface:hover {
-  border-color: #D0D5DD;
-  box-shadow: 0 2px 4px rgba(16, 24, 40, 0.06);
+.neu-card:hover {
+  border-color: rgba(203, 213, 225, 0.9);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.04),
+    5px 6px 18px rgba(195, 206, 224, 0.45),
+    -5px -6px 18px rgba(255, 255, 255, 1);
 }
 
-.m3-card {
-  background: #FFFFFF;
-  border: 1px solid #E5E9F0;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+/* Elevated 3D Interactive Card */
+.google-card, .neu-card-3d {
+  background: linear-gradient(145deg, #FFFFFF, #F8FAFD);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 1rem;
+  box-shadow: 
+    4px 5px 14px rgba(190, 202, 220, 0.35),
+    -4px -5px 14px rgba(255, 255, 255, 0.95);
+  transition: all 0.22s ease-in-out;
 }
 
-/* Backward compatibility aliases mapping to clean M3 tokens */
-.neu-card {
-  background: #FFFFFF;
-  border: 1px solid #E5E9F0;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+.google-card:hover, .neu-card-3d:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    6px 8px 20px rgba(180, 195, 215, 0.45),
+    -6px -8px 20px rgba(255, 255, 255, 1);
 }
 
 .neu-card-sm {
   background: #FFFFFF;
-  border: 1px solid #E5E9F0;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.02);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 0.75rem;
+  box-shadow: 
+    2px 3px 8px rgba(195, 206, 224, 0.25),
+    -2px -3px 8px rgba(255, 255, 255, 0.9);
 }
 
+/* Neumorphic 3D Interactive Buttons */
 .neu-button {
-  background: #FFFFFF;
-  border: 1px solid #E5E9F0;
-  border-radius: 0.5rem;
-  color: #344054;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  background: linear-gradient(145deg, #FFFFFF, #F1F5F9);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 0.75rem;
+  color: #334155;
+  box-shadow: 
+    2px 2px 5px rgba(195, 206, 224, 0.35),
+    -2px -2px 5px rgba(255, 255, 255, 0.95);
   transition: all 0.15s ease-in-out;
 }
 
 .neu-button:hover {
-  background: #F8FAFC;
-  border-color: #D0D5DD;
-  color: #101828;
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 
+    3px 4px 8px rgba(190, 202, 220, 0.45),
+    -3px -4px 8px rgba(255, 255, 255, 1);
 }
 
 .neu-button:active {
-  background: #EEF2F6;
+  box-shadow: 
+    inset 2px 2px 4px rgba(190, 202, 220, 0.35),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.85);
+  transform: scale(0.98);
 }
 
+/* Vibrant Primary 3D Action Button */
 .neu-button-primary {
-  background: #1765D1;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
   color: #FFFFFF;
-  border: 1px solid #1558B6;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(23, 101, 209, 0.2);
+  border: 1px solid #1E40AF;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  box-shadow: 
+    0 4px 12px rgba(37, 99, 235, 0.3),
+    2px 3px 8px rgba(190, 202, 220, 0.2);
   transition: all 0.15s ease-in-out;
 }
 
 .neu-button-primary:hover {
-  background: #1455B0;
-  box-shadow: 0 2px 4px rgba(23, 101, 209, 0.3);
+  background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+  box-shadow: 
+    0 6px 16px rgba(37, 99, 235, 0.4),
+    3px 4px 10px rgba(190, 202, 220, 0.25);
+  transform: translateY(-1px);
 }
 
 .neu-button-primary:active {
-  background: #10448D;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  transform: translateY(0) scale(0.98);
 }
 
+/* Neumorphic Input Fields */
 .neu-input {
   background: #FFFFFF;
-  border-radius: 0.5rem;
-  border: 1px solid #D0D5DD;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  border-radius: 0.75rem;
+  border: 1px solid #CBD5E1;
+  box-shadow: 
+    inset 1px 2px 4px rgba(0, 0, 0, 0.03),
+    0 1px 2px rgba(0, 0, 0, 0.02);
   transition: all 0.15s ease;
-  color: #101828;
+  color: #0F172A;
 }
 
 .neu-input:focus {
   outline: none;
-  border-color: #1765D1;
-  box-shadow: 0 0 0 3px rgba(23, 101, 209, 0.15);
+  border-color: #2563EB;
+  box-shadow: 
+    0 0 0 3px rgba(37, 99, 235, 0.15),
+    inset 1px 1px 3px rgba(0, 0, 0, 0.02);
 }
 
-/* Material Sleek Scrollbar */
+/* Tactile Pill Badges */
+.neu-pill {
+  box-shadow: 
+    1px 1px 3px rgba(190, 202, 220, 0.25),
+    -1px -1px 3px rgba(255, 255, 255, 0.9);
+}
+
+/* Custom Sleek Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -109,25 +161,25 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D0D5DD;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #98A2B3;
+  background: #94A3B8;
 }
 
-.google-card {
-  background: #FFFFFF;
-  border: 1px solid #E5E9F0;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
-  transition: all 0.15s ease-in-out;
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.google-card:hover {
-  border-color: #D0D5DD;
-  box-shadow: 0 4px 6px -1px rgba(16, 24, 40, 0.06), 0 2px 4px -2px rgba(16, 24, 40, 0.04);
+.animate-bounce-in {
+  animation: bounceIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-
-

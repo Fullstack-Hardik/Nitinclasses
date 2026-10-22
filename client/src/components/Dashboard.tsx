@@ -178,11 +178,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {/* 1. Total Enrolled */}
         <div 
           onClick={() => onNavigate?.('students')}
-          className="google-card p-5 cursor-pointer flex flex-col justify-between group hover:border-blue-300 transition"
+          className="neu-card-3d p-5 cursor-pointer flex flex-col justify-between group hover:border-blue-300 transition-all active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Students</span>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition shadow-xs">
               <Users className="w-5 h-5" />
             </div>
           </div>
@@ -199,11 +199,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {/* 2. Collected This Month */}
         <div 
           onClick={() => onNavigate?.('fees')}
-          className="google-card p-5 cursor-pointer flex flex-col justify-between group hover:border-emerald-300 transition"
+          className="neu-card-3d p-5 cursor-pointer flex flex-col justify-between group hover:border-emerald-300 transition-all active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Month Collection</span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition shadow-xs">
               <IndianRupee className="w-5 h-5" />
             </div>
           </div>
@@ -220,11 +220,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {/* 3. Outstanding Balances & Overdue Split */}
         <div 
           onClick={() => onNavigate?.('fees')}
-          className="google-card p-5 cursor-pointer flex flex-col justify-between group hover:border-amber-300 transition"
+          className="neu-card-3d p-5 cursor-pointer flex flex-col justify-between group hover:border-amber-300 transition-all active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Outstanding Dues</span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition shadow-xs">
               <Clock className="w-5 h-5" />
             </div>
           </div>
@@ -248,11 +248,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {/* 4. Library Seat Capacity */}
         <div 
           onClick={() => onNavigate?.('library')}
-          className="google-card p-5 cursor-pointer flex flex-col justify-between group hover:border-sky-300 transition"
+          className="neu-card-3d p-5 cursor-pointer flex flex-col justify-between group hover:border-sky-300 transition-all active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Library Capacity</span>
-            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition shadow-xs">
               <Building className="w-5 h-5" />
             </div>
           </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, IndianRupee, Download, Sparkles, CheckCircle2, AlertCircle, PlusCircle, Calendar, BookOpen } from 'lucide-react';
 import api from '../services/api';
 import { Student, FeeDue } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface DirectCollectFeeModalProps {
   student: Student | null;
@@ -14,6 +15,7 @@ export const DirectCollectFeeModal: React.FC<DirectCollectFeeModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  const toast = useToast();
   const [serviceType, setServiceType] = useState<'coaching' | 'library'>(
     student?.coaching?.hasMembership ? 'coaching' : 'library'
   );
@@ -112,6 +114,7 @@ export const DirectCollectFeeModal: React.FC<DirectCollectFeeModalProps> = ({
           serviceType,
           settledPayments: res.data.data.settledPayments || []
         });
+        toast.success(`Fee ₹${num} collected successfully!`);
         window.dispatchEvent(new Event('nsc_fees_updated'));
         // Notify parent to refresh lists in background
         onSuccess();
@@ -119,7 +122,9 @@ export const DirectCollectFeeModal: React.FC<DirectCollectFeeModalProps> = ({
         fetchStudentDues(student._id);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to record fee payment.');
+      const msg = err.response?.data?.message || 'Failed to record fee payment.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -154,8 +159,9 @@ export const DirectCollectFeeModal: React.FC<DirectCollectFeeModalProps> = ({
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
+      toast.info('Receipt downloaded');
     } catch (err: any) {
-      alert('Error downloading receipt: ' + err.message);
+      toast.error('Error downloading receipt: ' + err.message);
     }
   };
 
@@ -171,8 +177,9 @@ export const DirectCollectFeeModal: React.FC<DirectCollectFeeModalProps> = ({
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
+      toast.info('Student ledger downloaded');
     } catch (err: any) {
-      alert('Error downloading statement: ' + err.message);
+      toast.error('Error downloading statement: ' + err.message);
     }
   };
 
@@ -321,11 +328,13 @@ export const DirectCollectFeeModal: React.FC<DirectCollectFeeModalProps> = ({
                     {student.mobileNumber && ` • ${student.mobileNumber}`}
                   </span>
                 </div>
-                {currentAdvance > 0 && (
-                  <span className="text-[11px] text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800/60 font-semibold">
-                    Advance: ₹{currentAdvance}
-                  </span>
-                )}
+                <span className={`text-[11px] px-2.5 py-1 rounded-lg border font-bold flex items-center gap-1 ${
+                  currentAdvance > 0 
+                    ? 'text-emerald-300 bg-emerald-950/60 border-emerald-700/60 shadow-xs' 
+                    : 'text-slate-400 bg-slate-800/80 border-slate-700/60'
+                }`}>
+                  💼 Advance: ₹{currentAdvance}
+                </span>
               </div>
 
               {/* Outstanding Month-by-Month Dues Breakdown */}
