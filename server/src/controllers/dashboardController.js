@@ -14,29 +14,6 @@ const getDashboardStats = async (req, res) => {
       return res.json({ success: true, data: cachedData, cached: true });
     }
 
-    // Real DB Counts
-    const totalStudents = await Student.countDocuments({ isArchived: false });
-    const coachingStudents = await Student.countDocuments({
-      isArchived: false,
-      'coaching.hasMembership': true,
-      'coaching.status': 'active'
-    });
-    const libraryStudents = await Student.countDocuments({
-      isArchived: false,
-      'library.hasMembership': true,
-      'library.status': 'active'
-    });
-
-    // Library Occupancies
-    const boysSeats = await Seat.find({ libraryType: 'boys' }).select('status');
-    const boysOccupied = boysSeats.filter(s => s.status === 'occupied').length;
-    const boysTotal = boysSeats.length || 50;
-
-    const girlsSeats = await Seat.find({ libraryType: 'girls' }).select('status');
-    const girlsOccupied = girlsSeats.filter(s => s.status === 'occupied').length;
-    const girlsTotal = girlsSeats.length || 50;
-
-    // Collections calculation
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
@@ -53,78 +30,14 @@ const getDashboardStats = async (req, res) => {
     const sundayOfWeek = new Date(mondayOfWeek);
     sundayOfWeek.setDate(mondayOfWeek.getDate() + 7);
 
+    // Next week boundaries
+    const nextMonday = new Date(sundayOfWeek);
+    const nextSunday = new Date(nextMonday);
+    nextSunday.setDate(nextMonday.getDate() + 7);
+
     // Upcoming reminder window (Tomorrow up to 7 days ahead)
     const upcomingEnd = new Date(startOfToday);
     upcomingEnd.setDate(startOfToday.getDate() + 8);
-
-    const [todayPayments] = await Payment.aggregate([
-      { $match: { paymentDate: { $gte: startOfToday } } },
-      { $group: { _id: null, total: { $sum: '$amountPaid' } } }
-    ]);
-
-    const [monthPayments] = await Payment.aggregate([
-      { $match: { paymentDate: { $gte: startOfMonth } } },
-      { $group: { _id: null, total: { $sum: '$amountPaid' } } }
-    ]);
-
-    // Active students only - ensure deleted/archived students never count towards overdues/dues
-    const activeStudents = await Student.find({ isArchived: false }).select('_id');
-    const activeStudentIds = activeStudents.map(s => s._id);
-
-    // Auto-heal any legacy dues of archived students to 0 remaining & cancelled
-    const archivedStudents = await Student.find({ isArchived: true }).select('_id');
-    if (archivedStudents.length > 0) {
-      const archivedIds = archivedStudents.map(s => s._id);
-      await FeeDue.updateMany(
-        { student: { $in: archivedIds }, remainingAmount: { $gt: 0 } },
-        { $set: { remainingAmount: 0, status: 'cancelled' } }
-      );
-    }
-
-    // Outstanding and Overdue fees (Strictly active students)
-    // Outstanding includes all dues whose cycle has arrived
-    const [outstandingDues] = await FeeDue.aggregate([
-      { $match: { student: { $in: activeStudentIds }, remainingAmount: { $gt: 0 }, periodStartDate: { $lte: endOfToday } } },
-      { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
-    ]);
-
-    // Overdue includes only past cycles whose cycle period has completely ended
-    const [overdueDues] = await FeeDue.aggregate([
-      { $match: { student: { $in: activeStudentIds }, remainingAmount: { $gt: 0 }, periodEndDate: { $lt: startOfToday } } },
-      { $group: { _id: null, total: { $sum: '$remainingAmount' } } }
-    ]);
-
-    // Actionable Action Lists: Due Today, Due This Week, Upcoming (Active students only)
-    const dueTodayList = await FeeDue.find({
-      student: { $in: activeStudentIds },
-      remainingAmount: { $gt: 0 },
-      dueDate: { $gte: startOfToday, $lt: tomorrow }
-    }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(10);
-
-    const dueThisWeekList = await FeeDue.find({
-      student: { $in: activeStudentIds },
-      remainingAmount: { $gt: 0 },
-      dueDate: { $gte: mondayOfWeek, $lt: sundayOfWeek }
-    }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(15);
-
-    const upcomingList = await FeeDue.find({
-      student: { $in: activeStudentIds },
-      remainingAmount: { $gt: 0 },
-      dueDate: { $gte: tomorrow, $lt: upcomingEnd }
-    }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(10);
-
-    // Coaching vs Library Collections breakdown
-    const breakdown = await Payment.aggregate([
-      {
-        $group: {
-          _id: '$serviceType',
-          totalAmount: { $sum: '$amountPaid' }
-        }
-      }
-    ]);
-
-    const coachingCollection = breakdown.find(b => b._id === 'coaching')?.totalAmount || 0;
-    const libraryCollection = breakdown.find(b => b._id === 'library')?.totalAmount || 0;
 
     // Trend range filter: '6_months' (default) | '12_months' | 'current_year'
     let monthCount = 6;
@@ -143,24 +56,169 @@ const getDashboardStats = async (req, res) => {
         total: 0
       });
     }
-
     const startDate = new Date(trendMonthsList[0].year, trendMonthsList[0].month - 1, 1);
 
-    const paymentAggregates = await Payment.aggregate([
-      { $match: { paymentDate: { $gte: startDate } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$paymentDate' },
-            month: { $month: '$paymentDate' },
-            service: '$serviceType'
-          },
-          total: { $sum: '$amountPaid' }
+    // Execute Phase 1: Counts, Occupancies, Active Students, Collections in parallel
+    const [
+      totalStudents,
+      coachingStudents,
+      libraryStudents,
+      boysSeats,
+      girlsSeats,
+      todayPayments,
+      monthPayments,
+      activeStudents,
+      breakdown,
+      paymentAggregates
+    ] = await Promise.all([
+      Student.countDocuments({ isArchived: false }),
+      Student.countDocuments({ isArchived: false, 'coaching.hasMembership': true, 'coaching.status': 'active' }),
+      Student.countDocuments({ isArchived: false, 'library.hasMembership': true, 'library.status': 'active' }),
+      Seat.find({ libraryType: 'boys' }).select('status').lean(),
+      Seat.find({ libraryType: 'girls' }).select('status').lean(),
+      Payment.aggregate([
+        { $match: { paymentDate: { $gte: startOfToday } } },
+        { $group: { _id: null, total: { $sum: '$amountPaid' } } }
+      ]),
+      Payment.aggregate([
+        { $match: { paymentDate: { $gte: startOfMonth } } },
+        { $group: { _id: null, total: { $sum: '$amountPaid' } } }
+      ]),
+      Student.find({ isArchived: false }).select('_id').lean(),
+      Payment.aggregate([
+        { $group: { _id: '$serviceType', totalAmount: { $sum: '$amountPaid' } } }
+      ]),
+      Payment.aggregate([
+        { $match: { paymentDate: { $gte: startDate } } },
+        {
+          $group: {
+            _id: {
+              year: { $year: '$paymentDate' },
+              month: { $month: '$paymentDate' },
+              service: '$serviceType'
+            },
+            total: { $sum: '$amountPaid' }
+          }
         }
-      }
+      ])
     ]);
 
-    // Map payments into the trend months list
+    const activeStudentIds = activeStudents.map(s => s._id);
+
+    // Library Occupancies
+    const boysOccupied = boysSeats.filter(s => s.status === 'occupied').length;
+    const boysTotal = boysSeats.length || 50;
+    const girlsOccupied = girlsSeats.filter(s => s.status === 'occupied').length;
+    const girlsTotal = girlsSeats.length || 50;
+
+    // Collections
+    const todayTotal = todayPayments[0]?.total || 0;
+    const monthTotal = monthPayments[0]?.total || 0;
+    const coachingCollection = breakdown.find(b => b._id === 'coaching')?.totalAmount || 0;
+    const libraryCollection = breakdown.find(b => b._id === 'library')?.totalAmount || 0;
+
+    // Phase 2: Dues & Overdues Breakdown (Coaching vs Library, Month/Week, Action Lists) in parallel
+    const [
+      outstandingGrouped,
+      overdueGrouped,
+      monthlyDuesAggregates,
+      dueTodayList,
+      dueThisWeekList,
+      upcomingList,
+      topOverdueList
+    ] = await Promise.all([
+      // Outstanding separated by coaching vs library
+      FeeDue.aggregate([
+        {
+          $match: {
+            student: { $in: activeStudentIds },
+            remainingAmount: { $gt: 0 },
+            periodStartDate: { $lte: endOfToday }
+          }
+        },
+        {
+          $group: {
+            _id: '$serviceType',
+            total: { $sum: '$remainingAmount' },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      // Overdue separated by coaching vs library
+      FeeDue.aggregate([
+        {
+          $match: {
+            student: { $in: activeStudentIds },
+            remainingAmount: { $gt: 0 },
+            periodEndDate: { $lt: startOfToday }
+          }
+        },
+        {
+          $group: {
+            _id: '$serviceType',
+            total: { $sum: '$remainingAmount' },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      // Month-wise Dues and Overdue trend (for chart & visual timeline)
+      FeeDue.aggregate([
+        {
+          $match: {
+            student: { $in: activeStudentIds },
+            remainingAmount: { $gt: 0 }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: '$periodStartDate' },
+              month: { $month: '$periodStartDate' },
+              service: '$serviceType',
+              isOverdue: { $lt: ['$periodEndDate', startOfToday] }
+            },
+            total: { $sum: '$remainingAmount' },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      // Due Today List
+      FeeDue.find({
+        student: { $in: activeStudentIds },
+        remainingAmount: { $gt: 0 },
+        dueDate: { $gte: startOfToday, $lt: tomorrow }
+      }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(10).lean(),
+      // Due This Week List
+      FeeDue.find({
+        student: { $in: activeStudentIds },
+        remainingAmount: { $gt: 0 },
+        dueDate: { $gte: mondayOfWeek, $lt: sundayOfWeek }
+      }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(15).lean(),
+      // Upcoming (Next 7 Days) List
+      FeeDue.find({
+        student: { $in: activeStudentIds },
+        remainingAmount: { $gt: 0 },
+        dueDate: { $gte: tomorrow, $lt: upcomingEnd }
+      }).populate('student', 'fullName studentId mobileNumber').sort({ dueDate: 1 }).limit(10).lean(),
+      // Top Overdue Students List (for quick follow-up)
+      FeeDue.find({
+        student: { $in: activeStudentIds },
+        remainingAmount: { $gt: 0 },
+        periodEndDate: { $lt: startOfToday }
+      }).populate('student', 'fullName studentId mobileNumber').sort({ periodEndDate: 1, remainingAmount: -1 }).limit(15).lean()
+    ]);
+
+    // Parse Outstanding totals
+    const coachingOutstanding = outstandingGrouped.find(o => o._id === 'coaching')?.total || 0;
+    const libraryOutstanding = outstandingGrouped.find(o => o._id === 'library')?.total || 0;
+    const totalOutstandingFees = coachingOutstanding + libraryOutstanding;
+
+    // Parse Overdue totals
+    const coachingOverdue = overdueGrouped.find(o => o._id === 'coaching')?.total || 0;
+    const libraryOverdue = overdueGrouped.find(o => o._id === 'library')?.total || 0;
+    const totalOverdueFees = coachingOverdue + libraryOverdue;
+
+    // Map payments into trend months list
     paymentAggregates.forEach(p => {
       const entry = trendMonthsList.find(m => m.year === p._id.year && m.month === p._id.month);
       if (entry) {
@@ -177,15 +235,95 @@ const getDashboardStats = async (req, res) => {
       total: m.total
     }));
 
+    // Process Month-wise Dues and Overdues timeline
+    const monthlyDuesMap = {};
+    monthlyDuesAggregates.forEach(item => {
+      const key = `${item._id.year}-${item._id.month}`;
+      if (!monthlyDuesMap[key]) {
+        monthlyDuesMap[key] = {
+          year: item._id.year,
+          month: item._id.month,
+          coachingDue: 0,
+          libraryDue: 0,
+          coachingOverdue: 0,
+          libraryOverdue: 0,
+          totalDue: 0,
+          totalOverdue: 0
+        };
+      }
+      const target = monthlyDuesMap[key];
+      const isOver = Boolean(item._id.isOverdue);
+      if (item._id.service === 'coaching') {
+        if (isOver) {
+          target.coachingOverdue += item.total;
+          target.totalOverdue += item.total;
+        } else {
+          target.coachingDue += item.total;
+          target.totalDue += item.total;
+        }
+      } else if (item._id.service === 'library') {
+        if (isOver) {
+          target.libraryOverdue += item.total;
+          target.totalOverdue += item.total;
+        } else {
+          target.libraryDue += item.total;
+          target.totalDue += item.total;
+        }
+      }
+    });
+
+    const monthlyDuesTimeline = Object.values(monthlyDuesMap).sort((a, b) => {
+      return (a.year * 12 + a.month) - (b.year * 12 + b.month);
+    });
+
+    // Week-wise Dues breakdown
+    let dueThisWeekCoaching = 0;
+    let dueThisWeekLibrary = 0;
+    dueThisWeekList.forEach(d => {
+      if (d.serviceType === 'coaching') dueThisWeekCoaching += d.remainingAmount;
+      else if (d.serviceType === 'library') dueThisWeekLibrary += d.remainingAmount;
+    });
+
+    let dueTodayCoaching = 0;
+    let dueTodayLibrary = 0;
+    dueTodayList.forEach(d => {
+      if (d.serviceType === 'coaching') dueTodayCoaching += d.remainingAmount;
+      else if (d.serviceType === 'library') dueTodayLibrary += d.remainingAmount;
+    });
+
+    const weeklyBreakdown = {
+      today: {
+        total: dueTodayCoaching + dueTodayLibrary,
+        coaching: dueTodayCoaching,
+        library: dueTodayLibrary,
+        count: dueTodayList.length
+      },
+      thisWeek: {
+        total: dueThisWeekCoaching + dueThisWeekLibrary,
+        coaching: dueThisWeekCoaching,
+        library: dueThisWeekLibrary,
+        count: dueThisWeekList.length
+      },
+      overdueTotal: {
+        total: totalOverdueFees,
+        coaching: coachingOverdue,
+        library: libraryOverdue
+      }
+    };
+
     const responseData = {
       summary: {
         totalStudents,
         coachingStudents,
         libraryStudents,
-        totalFeesCollectedToday: todayPayments ? todayPayments.total : 0,
-        totalFeesCollectedThisMonth: monthPayments ? monthPayments.total : 0,
-        totalOutstandingFees: outstandingDues ? outstandingDues.total : 0,
-        overdueFees: overdueDues ? overdueDues.total : 0,
+        totalFeesCollectedToday: todayTotal,
+        totalFeesCollectedThisMonth: monthTotal,
+        totalOutstandingFees,
+        coachingOutstandingFees: coachingOutstanding,
+        libraryOutstandingFees: libraryOutstanding,
+        overdueFees: totalOverdueFees,
+        coachingOverdueFees: coachingOverdue,
+        libraryOverdueFees: libraryOverdue,
         boysLibraryOccupancy: {
           occupied: boysOccupied,
           total: boysTotal,
@@ -197,6 +335,16 @@ const getDashboardStats = async (req, res) => {
           percentage: girlsTotal > 0 ? Math.round((girlsOccupied / girlsTotal) * 100) : 0
         }
       },
+      duesBreakdown: {
+        coachingOutstanding,
+        libraryOutstanding,
+        totalOutstanding: totalOutstandingFees,
+        coachingOverdue,
+        libraryOverdue,
+        totalOverdue: totalOverdueFees,
+        weekly: weeklyBreakdown,
+        monthlyTimeline: monthlyDuesTimeline
+      },
       breakdown: {
         coachingCollection,
         libraryCollection,
@@ -205,11 +353,12 @@ const getDashboardStats = async (req, res) => {
       dueThisWeek: dueThisWeekList,
       dueToday: dueTodayList,
       upcoming: upcomingList,
+      topOverdue: topOverdueList,
       monthlyTrend
     };
 
-    // Cache dashboard response for 30 seconds
-    cache.set(cacheKey, responseData, 30000);
+    // Cache dashboard response for 20 seconds
+    cache.set(cacheKey, responseData, 20000);
 
     return res.json({
       success: true,

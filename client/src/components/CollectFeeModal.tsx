@@ -55,6 +55,7 @@ export const CollectFeeModal: React.FC<CollectFeeModalProps> = ({ feeDue, onClos
       if (res.data.success) {
         setReceiptPaymentId(res.data.data.payment._id);
         setReceiptNumber(res.data.data.payment.receiptNumber);
+        window.dispatchEvent(new Event('nsc_fees_updated'));
         onSuccess();
       }
     } catch (err: any) {

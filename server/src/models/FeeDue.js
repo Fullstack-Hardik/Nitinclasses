@@ -51,6 +51,10 @@ const feeDueSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Prevent duplicate billing periods for the same student and service
-feeDueSchema.index({ student: 1, serviceType: 1, billingPeriod: 1 }, { unique: true });
+feeDueSchema.index({ student: 1, serviceType: 1, billingPeriod: 1 });
+feeDueSchema.index({ student: 1, serviceType: 1, remainingAmount: 1 });
+feeDueSchema.index({ remainingAmount: 1, periodStartDate: 1 });
+feeDueSchema.index({ remainingAmount: 1, periodEndDate: 1 });
+feeDueSchema.index({ remainingAmount: 1, dueDate: 1 });
 
 module.exports = mongoose.model('FeeDue', feeDueSchema);

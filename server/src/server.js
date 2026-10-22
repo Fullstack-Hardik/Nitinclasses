@@ -120,6 +120,8 @@ const server = app.listen(PORT, () => {
   connectDB()
     .then(async () => {
       await seedDefaultAdmin();
+      const { cleanupAllDuplicateDues } = require('./services/billingService');
+      await cleanupAllDuplicateDues().catch(e => console.warn('[Startup Deduplication Error]:', e.message));
     })
     .catch((err) => {
       console.error('[DB Startup Error] Background connection failed:', err.message);

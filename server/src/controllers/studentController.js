@@ -4,7 +4,7 @@ const FeeDue = require('../models/FeeDue');
 const Payment = require('../models/Payment');
 const AuditLog = require('../models/AuditLog');
 const cache = require('../services/cacheService');
-const { generateDuesForStudent } = require('../services/billingService');
+const { generateDuesForStudent, cleanupDuplicateDues } = require('../services/billingService');
 
 const { generateStudentId, reassignStudentIdIfNeeded } = require('../services/codeService');
 
@@ -64,10 +64,10 @@ const getStudentById = async (req, res) => {
     }
 
     // Auto sync dues on view to guarantee up-to-date billing periods
-    if (student.coaching?.hasMembership) {
+    if (student.coaching?.hasMembership && student.coaching.status === 'active') {
       await generateDuesForStudent(student, 'coaching');
     }
-    if (student.library?.hasMembership) {
+    if (student.library?.hasMembership && student.library.status === 'active') {
       await generateDuesForStudent(student, 'library');
     }
 
@@ -271,6 +271,9 @@ const updateStudent = async (req, res) => {
     if (studentJoiningDate) student.studentJoiningDate = new Date(studentJoiningDate);
     if (advanceFeeBalance !== undefined) student.advanceFeeBalance = Number(advanceFeeBalance);
 
+    const prevCoaching = student.coaching?.hasMembership;
+    const prevLibrary = student.library?.hasMembership;
+
     if (membershipType) {
       await reassignStudentIdIfNeeded(student, membershipType);
       student.membershipType = membershipType;
@@ -280,19 +283,54 @@ const updateStudent = async (req, res) => {
       student.coaching.hasMembership = hasCoaching;
       student.library.hasMembership = hasLibrary;
 
-      // If library was removed, free up assigned seat automatically
-      if (!hasLibrary && student.library.seatNumber) {
-        const oldSeat = await Seat.findOne({
-          libraryType: student.library.libraryType,
-          seatNumber: student.library.seatNumber
+      const now = new Date();
+
+      // If coaching was removed
+      if (!hasCoaching) {
+        student.coaching.status = 'inactive';
+        // Clean up future unpaid dues so no next month fees will ever linger
+        await FeeDue.deleteMany({
+          student: student._id,
+          serviceType: 'coaching',
+          periodStartDate: { $gt: now },
+          paidAmount: 0
         });
-        if (oldSeat && oldSeat.assignedStudent?.toString() === student._id.toString()) {
-          oldSeat.status = 'available';
-          oldSeat.assignedStudent = null;
-          oldSeat.assignedAt = null;
-          await oldSeat.save();
+      } else if (!prevCoaching) {
+        // Coaching newly added: ensure joiningDate is valid and starts fresh
+        student.coaching.status = coachingStatus || 'active';
+        if (!student.coaching.joiningDate && !coachingJoiningDate) {
+          student.coaching.joiningDate = new Date();
         }
-        student.library.seatNumber = null;
+      }
+
+      // If library was removed, free up assigned seat automatically and clean future unpaid dues
+      if (!hasLibrary) {
+        student.library.status = 'inactive';
+        if (student.library.seatNumber) {
+          const oldSeat = await Seat.findOne({
+            libraryType: student.library.libraryType,
+            seatNumber: student.library.seatNumber
+          });
+          if (oldSeat && oldSeat.assignedStudent?.toString() === student._id.toString()) {
+            oldSeat.status = 'available';
+            oldSeat.assignedStudent = null;
+            oldSeat.assignedAt = null;
+            await oldSeat.save();
+          }
+          student.library.seatNumber = null;
+        }
+        await FeeDue.deleteMany({
+          student: student._id,
+          serviceType: 'library',
+          periodStartDate: { $gt: now },
+          paidAmount: 0
+        });
+      } else if (!prevLibrary) {
+        // Library newly added: ensure joiningDate is valid and starts fresh
+        student.library.status = libraryStatus || 'active';
+        if (!student.library.joiningDate && !libraryJoiningDate) {
+          student.library.joiningDate = new Date();
+        }
       }
     }
 
@@ -347,9 +385,17 @@ const updateStudent = async (req, res) => {
 
     await student.save();
 
-    // Re-sync dues
-    if (student.coaching.hasMembership) await generateDuesForStudent(student, 'coaching');
-    if (student.library.hasMembership) await generateDuesForStudent(student, 'library');
+    // Re-sync dues only if active, and run duplicate cleanup
+    if (student.coaching.hasMembership && student.coaching.status === 'active') {
+      await generateDuesForStudent(student, 'coaching');
+    }
+    if (student.library.hasMembership && student.library.status === 'active') {
+      await generateDuesForStudent(student, 'library');
+    }
+
+    // Run duplicate cleanup for both services
+    await cleanupDuplicateDues(student._id, 'coaching');
+    await cleanupDuplicateDues(student._id, 'library');
 
     // Invalidate dashboard cache
     cache.invalidate('dashboard');

@@ -77,7 +77,11 @@ export interface DashboardStats {
     totalFeesCollectedToday: number;
     totalFeesCollectedThisMonth: number;
     totalOutstandingFees: number;
+    coachingOutstandingFees?: number;
+    libraryOutstandingFees?: number;
     overdueFees: number;
+    coachingOverdueFees?: number;
+    libraryOverdueFees?: number;
     boysLibraryOccupancy: {
       occupied: number;
       total: number;
@@ -89,6 +93,29 @@ export interface DashboardStats {
       percentage: number;
     };
   };
+  duesBreakdown?: {
+    coachingOutstanding: number;
+    libraryOutstanding: number;
+    totalOutstanding: number;
+    coachingOverdue: number;
+    libraryOverdue: number;
+    totalOverdue: number;
+    weekly?: {
+      today: { total: number; coaching: number; library: number; count: number };
+      thisWeek: { total: number; coaching: number; library: number; count: number };
+      overdueTotal: { total: number; coaching: number; library: number };
+    };
+    monthlyTimeline?: Array<{
+      year: number;
+      month: number;
+      coachingDue: number;
+      libraryDue: number;
+      coachingOverdue: number;
+      libraryOverdue: number;
+      totalDue: number;
+      totalOverdue: number;
+    }>;
+  };
   breakdown: {
     coachingCollection: number;
     libraryCollection: number;
@@ -97,6 +124,7 @@ export interface DashboardStats {
   dueThisWeek?: FeeDue[];
   dueToday?: FeeDue[];
   upcoming?: FeeDue[];
+  topOverdue?: FeeDue[];
   monthlyTrend: Array<{
     _id: { year: number; month: number };
     total: number;

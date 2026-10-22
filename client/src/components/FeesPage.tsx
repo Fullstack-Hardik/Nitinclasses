@@ -138,6 +138,16 @@ export const FeesPage: React.FC = () => {
     }
   };
 
+  const handleToggleSmartMode = async () => {
+    const nextState = !smartModeEnabled;
+    setSmartModeEnabled(nextState);
+    try {
+      await api.put('/settings', { smartModeEnabled: nextState });
+    } catch (err: any) {
+      console.error('Failed to toggle smart mode:', err);
+    }
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     fetchDues();
@@ -222,14 +232,31 @@ export const FeesPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Coaching Fees & Billing</h1>
           <p className="text-sm text-slate-500 mt-0.5">Recurring dues based on individual joining-date anniversaries</p>
         </div>
-        <button
-          onClick={handleSyncRecurring}
-          disabled={syncing}
-          className="neu-button px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-center gap-2"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Generating Dues...' : 'Run Billing Sync'}
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Instant Smart Mode Switch */}
+          <button
+            type="button"
+            onClick={handleToggleSmartMode}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border ${
+              smartModeEnabled
+                ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm shadow-blue-200'
+                : 'neu-button text-slate-600 hover:text-slate-900'
+            }`}
+            title={smartModeEnabled ? 'Smart Mode is ON (Click to Turn Off)' : 'Smart Mode is OFF (Click to Turn On)'}
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${smartModeEnabled ? 'text-amber-300 animate-pulse' : 'text-slate-400'}`} />
+            {smartModeEnabled ? 'Smart Mode: Active ✓' : 'Enable Smart Mode'}
+          </button>
+
+          <button
+            onClick={handleSyncRecurring}
+            disabled={syncing}
+            className="neu-button px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-center gap-2"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Generating Dues...' : 'Run Billing Sync'}
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -514,6 +541,26 @@ export const FeesPage: React.FC = () => {
                               </button>
                             )}
 
+                            {/* Smart Edit button on student row */}
+                            {smartModeEnabled && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const dueToEdit = grp.dues.find(d => d.remainingAmount > 0) || grp.dues[0];
+                                  if (dueToEdit) {
+                                    setManipulateDue(dueToEdit);
+                                  } else {
+                                    toggleStudentExpand(sId);
+                                  }
+                                }}
+                                className="px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 inline-flex items-center gap-1 text-[11px] font-bold"
+                                title="Smart Edit: Edit fee record"
+                              >
+                                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                                <span className="hidden sm:inline">Edit</span>
+                              </button>
+                            )}
+
                             {/* Collect Fee Action */}
                             <button
                               onClick={() => setDirectStudent(grp.student)}
@@ -580,17 +627,30 @@ export const FeesPage: React.FC = () => {
                                                 </span>
                                               </td>
                                               <td className="py-2 px-2 text-right">
-                                                {statusEval.statusType !== 'paid' ? (
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => setSelectedFeeDue(due)}
-                                                    className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold transition shadow-xs"
-                                                  >
-                                                    Pay Month
-                                                  </button>
-                                                ) : (
-                                                  <span className="text-slate-400 text-[10px]">Settled</span>
-                                                )}
+                                                <div className="flex items-center justify-end gap-1">
+                                                  {smartModeEnabled && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setManipulateDue(due)}
+                                                      className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200 inline-flex items-center gap-0.5 transition shadow-2xs"
+                                                      title="Smart Mode: Edit or override this fee due"
+                                                    >
+                                                      <Sparkles className="w-2.5 h-2.5 text-blue-600" />
+                                                      Edit
+                                                    </button>
+                                                  )}
+                                                  {statusEval.statusType !== 'paid' ? (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setSelectedFeeDue(due)}
+                                                      className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold transition shadow-xs"
+                                                    >
+                                                      Pay Month
+                                                    </button>
+                                                  ) : (
+                                                    <span className="text-emerald-700 font-bold text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Settled ✓</span>
+                                                  )}
+                                                </div>
                                               </td>
                                             </tr>
                                           );
@@ -649,17 +709,30 @@ export const FeesPage: React.FC = () => {
                                                 </span>
                                               </td>
                                               <td className="py-2 px-2 text-right">
-                                                {statusEval.statusType !== 'paid' ? (
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => setSelectedFeeDue(due)}
-                                                    className="px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold transition shadow-xs"
-                                                  >
-                                                    Pay Month
-                                                  </button>
-                                                ) : (
-                                                  <span className="text-slate-400 text-[10px]">Settled</span>
-                                                )}
+                                                <div className="flex items-center justify-end gap-1">
+                                                  {smartModeEnabled && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setManipulateDue(due)}
+                                                      className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200 inline-flex items-center gap-0.5 transition shadow-2xs"
+                                                      title="Smart Mode: Edit or override this fee due"
+                                                    >
+                                                      <Sparkles className="w-2.5 h-2.5 text-blue-600" />
+                                                      Edit
+                                                    </button>
+                                                  )}
+                                                  {statusEval.statusType !== 'paid' ? (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setSelectedFeeDue(due)}
+                                                      className="px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold transition shadow-xs"
+                                                    >
+                                                      Pay Month
+                                                    </button>
+                                                  ) : (
+                                                    <span className="text-emerald-700 font-bold text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Settled ✓</span>
+                                                  )}
+                                                </div>
                                               </td>
                                             </tr>
                                           );

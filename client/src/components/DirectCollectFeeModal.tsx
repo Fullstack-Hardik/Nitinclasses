@@ -112,6 +112,7 @@ export const DirectCollectFeeModal: React.FC<DirectCollectFeeModalProps> = ({
           serviceType,
           settledPayments: res.data.data.settledPayments || []
         });
+        window.dispatchEvent(new Event('nsc_fees_updated'));
         // Notify parent to refresh lists in background
         onSuccess();
         // Also re-fetch dues for this student

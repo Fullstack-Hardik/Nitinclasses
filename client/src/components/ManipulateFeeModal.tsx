@@ -60,6 +60,7 @@ export const ManipulateFeeModal: React.FC<ManipulateFeeModalProps> = ({
       });
 
       if (res.data.success) {
+        window.dispatchEvent(new Event('nsc_fees_updated'));
         onSuccess();
         onClose();
       }
